@@ -1487,14 +1487,10 @@ target_transfer_data(target_session_t * sess, iscsi_scsi_cmd_args_t * args,
 					    "sending R2T tag %u transfer tag %u len %u offset %u\n",
 					    r2t.tag, r2t.transfer_tag,
 					    r2t.length, r2t.offset);
-				if (iscsi_sock_msg
-				    (sess->sock, 1, ISCSI_HEADER_LEN, header,
-				     0) != ISCSI_HEADER_LEN) {
-					iscsi_trace_error(__FILE__, __LINE__,
-							  "iscsi_sock_msg() failed\n");
-					TTD_CLEANUP;
-					return -1;
-				}
+
+				gnet_conn_write(sess->conn, (gchar *) header,
+						ISCSI_HEADER_LEN);
+
 				r2t_flag = 1;
 				r2t.R2TSN += 1;
 			}
