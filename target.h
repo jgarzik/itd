@@ -134,6 +134,7 @@ typedef struct target_session_t {
 	int id;
 	int d;
 	int sock;
+	GConn *conn;
 	uint16_t cid;
 	uint32_t StatSN;
 	uint32_t ExpCmdSN;

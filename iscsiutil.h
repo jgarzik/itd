@@ -74,6 +74,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <gnet.h>
+
 /*
  * Debugging Levels
  */
@@ -173,8 +175,8 @@ int iscsi_sock_setsockopt(int *, int, int, void *, unsigned);
 int iscsi_sock_shutdown(int, int);
 int iscsi_sock_close(int);
 int iscsi_sock_msg(int, int, unsigned, void *, int);
-int iscsi_sock_send_header_and_data(int,
-				    void *, unsigned,
+int iscsi_sock_send_header_and_data(GConn *,
+				    const void *, unsigned,
 				    const void *, unsigned, int);
 int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 

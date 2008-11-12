@@ -121,9 +121,10 @@ static int reject_t(target_session_t * sess, uint8_t * header, uint8_t reason)
 				  "iscsi_reject_encap() failed\n");
 		return -1;
 	}
-	if (iscsi_sock_send_header_and_data
-	    (sess->sock, rsp_header, ISCSI_HEADER_LEN, header, ISCSI_HEADER_LEN,
-	     0) != 2 * ISCSI_HEADER_LEN) {
+	if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
+					    ISCSI_HEADER_LEN, header,
+					    ISCSI_HEADER_LEN, 0) !=
+					    	2 * ISCSI_HEADER_LEN) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_sock_send_header_and_data() failed\n");
 		return -1;
@@ -414,7 +415,7 @@ static int scsi_command_t(target_session_t * sess, uint8_t * header)
 				return -1;
 			}
 			if (iscsi_sock_send_header_and_data
-			    (sess->sock, rsp_header, ISCSI_HEADER_LEN, sg,
+			    (sess->conn, rsp_header, ISCSI_HEADER_LEN, sg,
 			     data.length, sg_len)
 			    != ISCSI_HEADER_LEN + data.length) {
 				iscsi_trace_error(__FILE__, __LINE__,
@@ -464,9 +465,9 @@ response:
 			AHS_CLEANUP;
 			return -1;
 		}
-		if (iscsi_sock_send_header_and_data
-		    (sess->sock, rsp_header, ISCSI_HEADER_LEN,
-		     scsi_cmd.send_data, scsi_rsp.length, scsi_cmd.send_sg_len)
+		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
+				ISCSI_HEADER_LEN, scsi_cmd.send_data,
+				scsi_rsp.length, scsi_cmd.send_sg_len)
 		    != ISCSI_HEADER_LEN + scsi_rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
@@ -650,9 +651,10 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
 			}
 			return -1;
 		}
-		if (iscsi_sock_send_header_and_data
-		    (sess->sock, rsp_header, ISCSI_HEADER_LEN, ping_data,
-		     nop_in.length, 0) != ISCSI_HEADER_LEN + nop_in.length) {
+		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
+				ISCSI_HEADER_LEN, ping_data,
+				nop_in.length, 0) !=
+					ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
 			if (ping_data) {
@@ -1137,9 +1139,9 @@ response:
 	}
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sending login response\n");
-	if (iscsi_sock_send_header_and_data
-	    (sess->sock, rsp_header, ISCSI_HEADER_LEN, text_out, rsp.length,
-	     0) != ISCSI_HEADER_LEN + rsp.length) {
+	if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
+		ISCSI_HEADER_LEN, text_out, rsp.length, 0) !=
+			ISCSI_HEADER_LEN + rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_sock_send_header_and_data() failed\n");
 		LC_CLEANUP;
@@ -1295,9 +1297,9 @@ static int verify_cmd_t(target_session_t * sess, uint8_t * header)
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending login response\n");
-		if (iscsi_sock_send_header_and_data
-		    (sess->sock, rsp_header, ISCSI_HEADER_LEN, NULL, 0,
-		     0) != ISCSI_HEADER_LEN + rsp.length) {
+		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
+			ISCSI_HEADER_LEN, NULL, 0, 0) !=
+				ISCSI_HEADER_LEN + rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
 			return -1;
@@ -1989,6 +1991,7 @@ int target_accept(globals_t * gp, GConn * conn)
 #endif
 
 	sess->globals = gp;
+	sess->conn = conn;
 
 	if (gnet_inetaddr_is_ipv6(conn->inetaddr))
 		sess->address_family = ISCSI_IPv6;
