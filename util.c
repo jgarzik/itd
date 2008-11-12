@@ -347,21 +347,6 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 	return 0;
 }
 
-int
-iscsi_sock_setsockopt(int *sock, int level, int optname,
-		      void *optval, unsigned optlen)
-{
-	int rc;
-
-	if ((rc = setsockopt(*sock, level, optname, optval, optlen)) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "sock->ops->setsockopt() failed: rc %d errno %d\n",
-				  rc, errno);
-		return 0;
-	}
-	return 1;
-}
-
 #ifndef MAXSOCK
 #define MAXSOCK	16
 #endif

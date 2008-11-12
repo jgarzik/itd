@@ -171,7 +171,6 @@ int iscsi_queue_full(iscsi_queue_t *);
 #define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_sock_setsockopt(int *, int, int, void *, unsigned);
 int iscsi_sock_shutdown(int, int);
 int iscsi_sock_close(int);
 int iscsi_sock_msg(int, int, unsigned, void *, int);

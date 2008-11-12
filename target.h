@@ -160,14 +160,15 @@ typedef struct target_cmd_t {
 	void *callback_arg;
 } target_cmd_t;
 
-int target_init(globals_t *, targv_t *, char *);
-int target_shutdown(globals_t *);
-int target_accept(globals_t * gp, GConn * conn);
-int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
+extern int target_init(globals_t *, targv_t *, char *);
+extern int target_shutdown(globals_t *);
+extern int target_accept(globals_t * gp, GConn * conn);
+extern int target_sess_cleanup(target_session_t *sess);
+extern int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
 			 struct iovec *, int);
 
-int find_target_tsih(globals_t *, int);
-int find_target_iqn(target_session_t *);
+static int find_target_tsih(globals_t *, int);
+static int find_target_iqn(target_session_t *);
 
 /* 
  * Interface from target to device:

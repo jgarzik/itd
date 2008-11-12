@@ -856,7 +856,7 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 }
 
 /* given a target's iqn, find the relevant target that we're exporting */
-int find_target_iqn(target_session_t * sess)
+static int find_target_iqn(target_session_t * sess)
 {
 	char buf[BUFSIZ];
 	int i;
@@ -874,7 +874,7 @@ int find_target_iqn(target_session_t * sess)
 }
 
 /* given a tsih, find the relevant target that we're exporting */
-int find_target_tsih(globals_t * globals, int tsih)
+static int find_target_tsih(globals_t * globals, int tsih)
 {
 	int i;
 
@@ -1790,6 +1790,38 @@ int target_shutdown(globals_t * gp)
 	return 0;
 }
 
+int target_sess_cleanup(target_session_t *sess)
+{
+	/* Clean up */
+
+	free(sess->buff);
+	if (param_list_destroy(sess->params) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "param_list_destroy() failed\n");
+		return -1;
+	}
+	/* Terminate connection */
+
+	if (iscsi_sock_close(sess->sock) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_sock_close() failed\n");
+	}
+	/* Make session available */
+
+	ISCSI_LOCK(&g_session_q_mutex, return -1);
+	(void)memset(sess, 0x0, sizeof(*sess));
+	if (iscsi_queue_insert(&g_session_q, sess) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_queue_insert() failed\n");
+		return -1;
+	}
+	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "session %d: ended\n", sess->id);
+
+	return 0;
+}
+
 int target_accept(globals_t * gp, GConn * conn)
 {
 	target_session_t *sess;
@@ -1970,33 +2002,6 @@ int target_accept(globals_t * gp, GConn * conn)
 			break;
 		}
 	}
-
-	/* Clean up */
-
-	free(sess->buff);
-	if (param_list_destroy(sess->params) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "param_list_destroy() failed\n");
-		return -1;
-	}
-	/* Terminate connection */
-
-	if (iscsi_sock_close(sess->sock) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_close() failed\n");
-	}
-	/* Make session available */
-
-	ISCSI_LOCK(&g_session_q_mutex, return -1);
-	(void)memset(sess, 0x0, sizeof(*sess));
-	if (iscsi_queue_insert(&g_session_q, sess) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_queue_insert() failed\n");
-		return -1;
-	}
-	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "session %d: ended\n", sess->id);
 
 done:
 	return 0;
