@@ -221,9 +221,7 @@ static int scsi_command_t(target_session_t * sess, uint8_t * header)
 			return -1;
 		}
 #define AHS_CLEANUP do {						\
-	if (scsi_cmd.ahs != NULL) {					\
-		free(scsi_cmd.ahs);			\
-	}								\
+	free(scsi_cmd.ahs);			\
 } while (/* CONSTCOND */ 0)
 
 		memcpy(scsi_cmd.ahs, sess->ahs, scsi_cmd.ahs_len);
@@ -653,12 +651,8 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 	int i;
 
 #define TC_CLEANUP do {							\
-	if (text_in != NULL) {						\
-		free(text_in);				\
-	}								\
-	if (text_out != NULL) {						\
-		free(text_out);				\
-	}								\
+	free(text_in);				\
+	free(text_out);				\
 } while (/* CONSTCOND */ 0)
 #define TC_ERROR {							\
 	TC_CLEANUP;							\
@@ -856,12 +850,8 @@ static int login_command_t(target_session_t * sess, uint8_t * header)
 	/* Initialize response */
 
 #define LC_CLEANUP do {							\
-	if (text_in != NULL) {						\
-		free(text_in);				\
-	}								\
-	if (text_out != NULL) {						\
-		free(text_out);				\
-	}								\
+	free(text_in);				\
+	free(text_out);				\
 } while (/* CONSTCOND */ 0)
 #define LC_ERROR {							\
 	TC_CLEANUP;							\
@@ -1390,9 +1380,7 @@ target_transfer_data(target_session_t * sess, iscsi_scsi_cmd_args_t * args,
 	int iov_len;
 
 #define TTD_CLEANUP do {						\
-	if (iov_ptr != NULL) {						\
-		free(iov_ptr);				\
-	}								\
+	free(iov_ptr);				\
 } while (/* CONSTCOND */ 0)
 
 	args->bytes_recv = 0;

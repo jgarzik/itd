@@ -460,15 +460,9 @@ static int find_credentials(iscsi_cred_t * cred, char *user, const char *auth)
 static void free_cred(iscsi_cred_t * cred)
 {
 	if (cred) {
-		if (cred->user) {
-			free(cred->user);
-		}
-		if (cred->auth_type) {
-			free(cred->auth_type);
-		}
-		if (cred->shared_secret) {
-			free(cred->shared_secret);
-		}
+		free(cred->user);
+		free(cred->auth_type);
+		free(cred->shared_secret);
 	}
 }
 #endif
@@ -499,11 +493,10 @@ param_parse_security(iscsi_parameter_t * head,
 	}
 	if ((context = malloc(sizeof(MD5_CTX))) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		if (chapstring != NULL)
-			free(chapstring);
+		free(chapstring);
 		return -1;
 	}
-#define PPS_CLEANUP { if (chapstring != NULL) free(chapstring);if (context != NULL) free(context); }
+#define PPS_CLEANUP { free(chapstring); free(context); }
 #define PPS_ERROR { PPS_CLEANUP; return (-1); };
 
 	if (strcmp(param_in->key, "AuthMethod") == 0) {
@@ -763,56 +756,36 @@ param_text_parse(iscsi_parameter_t * head,
 	}
 	if ((offer = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		if (key != NULL) {
-			free(key);
-		}
+		free(key);
 		return -1;
 	}
 	if ((valid = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		if (key != NULL) {
-			free(key);
-		}
-		if (offer != NULL) {
-			free(offer);
-		}
+		free(key);
+		free(offer);
 		return -1;
 	}
 	if ((val1 = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		if (key != NULL) {
-			free(key);
-		}
-		if (offer != NULL) {
-			free(offer);
-		}
-		if (valid != NULL) {
-			free(valid);
-		}
+		free(key);
+		free(offer);
+		free(valid);
 		return -1;
 	}
 	if ((val2 = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		if (key != NULL) {
-			free(key);
-		}
-		if (offer != NULL) {
-			free(offer);
-		}
-		if (valid != NULL) {
-			free(valid);
-		}
-		if (val1 != NULL) {
-			free(val1);
-		}
+		free(key);
+		free(offer);
+		free(valid);
+		free(val1);
 		return -1;
 	}
-#define PTP_CLEANUP { if (key != NULL) free(key);    \
-    if (offer != NULL) free(offer);                    \
-    if (valid != NULL) free(valid);                    \
-    if (val1 != NULL) free(val1);                      \
-    if (val2 != NULL) free(val2);						 \
-    if (tmp_key != NULL) free(tmp_key); }
+#define PTP_CLEANUP { free(key);    \
+    free(offer);                    \
+    free(valid);                    \
+    free(val1);                      \
+    free(val2);						 \
+    free(tmp_key); }
 #define PTP_ERROR {PTP_CLEANUP; return -1;}
 
 	if (!outgoing) {
