@@ -4,10 +4,10 @@
 
 INCLUDES	= @GLIB_CFLAGS@
 
-sbin_PROGRAMS	= skeleton
+sbin_PROGRAMS	= itd
 
-skeleton_SOURCES = main.c
-skeleton_LDADD	= @GLIB_LIBS@
+itd_SOURCES	= main.c
+itd_LDADD	= @GLIB_LIBS@
 
 EXTRA_DIST	= autogen.sh
 
