@@ -1969,12 +1969,11 @@ int target_listen(globals_t * gp)
 	struct sockaddr_in remoteAddrStorage;
 	struct sockaddr_in localAddrStorage;
 	target_session_t *sess;
-	int newconn;
 	socklen_t remoteAddrLen;
 	socklen_t localAddrLen;
 	char remote[1024];
 	char local[1024];
-	int i;
+	int i = 0;
 
 	ISCSI_THREAD_START("listen_thread");
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1996,56 +1995,36 @@ int target_listen(globals_t * gp)
 
 	sess->globals = gp;
 
-	/* Accept connection, spawn session thread, and */
-	/* clean up old threads */
-
-	i = iscsi_waitfor_connection(gp->sockv, gp->sockc,
-				     gp->config_file, &newconn);
-
-	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
-		    "waiting for %s connection on port %hd\n",
-		    iscsi_address_family(gp->famv[i]), gp->port);
-
-	if (!iscsi_sock_accept(newconn, &sess->sock)) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "iscsi_sock_accept() failed\n");
-		goto done;
-	}
-
 	switch (gp->famv[i]) {
 	case AF_INET:
 		sess->address_family = ISCSI_IPv4;
 		(void)memset(&localAddrStorage, 0x0, localAddrLen =
 			     sizeof(localAddrStorage));
-		if (getsockname
-		    (sess->sock,
+		if (getsockname (sess->sock,
 		     (struct sockaddr *)(void *)&localAddrStorage,
 		     &localAddrLen) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_getsockname() failed\n");
+					  "getsockname() failed\n");
 			goto done;
 		}
 
 		(void)memset(&remoteAddrStorage, 0x0, remoteAddrLen =
 			     sizeof(remoteAddrStorage));
-		if (getpeername
-		    (sess->sock,
+		if (getpeername (sess->sock,
 		     (struct sockaddr *)(void *)&remoteAddrStorage,
 		     &remoteAddrLen) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_getpeername() failed\n");
+					  "getpeername() failed\n");
 			goto done;
 		}
 #ifdef HAVE_GETNAMEINFO
-		if (getnameinfo
-		    ((struct sockaddr *)(void *)&localAddrStorage,
+		if (getnameinfo ((struct sockaddr *)(void *)&localAddrStorage,
 		     sizeof(localAddrStorage), local, sizeof(local),
 		     NULL, 0, NI_NUMERICHOST) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "getnameinfo local failed\n");
 		}
-		if (getnameinfo
-		    ((struct sockaddr *)(void *)&remoteAddrStorage,
+		if (getnameinfo ((struct sockaddr *)(void *)&remoteAddrStorage,
 		     sizeof(remoteAddrStorage), remote, sizeof(remote),
 		     NULL, 0, NI_NUMERICHOST) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -2053,8 +2032,7 @@ int target_listen(globals_t * gp)
 		}
 		(void)strlcpy(sess->initiator, remote, sizeof(sess->initiator));
 #else
-		(void)strlcpy(local,
-			      inet_ntoa(localAddrStorage.sin_addr),
+		(void)strlcpy(local, inet_ntoa(localAddrStorage.sin_addr),
 			      sizeof(local));
 		(void)strlcpy(sess->initiator,
 			      inet_ntoa(remoteAddrStorage.sin_addr),
@@ -2075,8 +2053,7 @@ int target_listen(globals_t * gp)
 		sess->address_family = ISCSI_IPv6;
 		(void)memset(&localAddrStorage6, 0x0, localAddrLen =
 			     sizeof(localAddrStorage6));
-		if (getsockname
-		    (sess->sock,
+		if (getsockname (sess->sock,
 		     (struct sockaddr *)(void *)&localAddrStorage6,
 		     &localAddrLen) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -2086,24 +2063,21 @@ int target_listen(globals_t * gp)
 
 		(void)memset(&remoteAddrStorage6, 0x0, remoteAddrLen =
 			     sizeof(remoteAddrStorage6));
-		if (getpeername
-		    (sess->sock,
+		if (getpeername (sess->sock,
 		     (struct sockaddr *)(void *)&remoteAddrStorage6,
 		     &remoteAddrLen) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_getpeername() failed\n");
+					  "getpeername() failed\n");
 			goto done;
 		}
 
-		if (getnameinfo
-		    ((struct sockaddr *)(void *)&localAddrStorage6,
+		if (getnameinfo ((struct sockaddr *)(void *)&localAddrStorage6,
 		     sizeof(localAddrStorage6), local, sizeof(local),
 		     NULL, 0, NI_NUMERICHOST) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "getnameinfo local failed\n");
 		}
-		if (getnameinfo
-		    ((struct sockaddr *)(void *)&remoteAddrStorage6,
+		if (getnameinfo ((struct sockaddr *)(void *)&remoteAddrStorage6,
 		     sizeof(remoteAddrStorage6), remote, sizeof(remote),
 		     NULL, 0, NI_NUMERICHOST) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,

@@ -169,18 +169,13 @@ int iscsi_queue_full(iscsi_queue_t *);
 #define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_waitfor_connection(int *, int, const char *cf, int *);
-const char *iscsi_address_family(int);
 int iscsi_sock_setsockopt(int *, int, int, void *, unsigned);
-int iscsi_sock_accept(int, int *);
 int iscsi_sock_shutdown(int, int);
 int iscsi_sock_close(int);
 int iscsi_sock_msg(int, int, unsigned, void *, int);
 int iscsi_sock_send_header_and_data(int,
 				    void *, unsigned,
 				    const void *, unsigned, int);
-int iscsi_sock_getsockname(int, struct sockaddr *, unsigned *);
-int iscsi_sock_getpeername(int, struct sockaddr *, unsigned *);
 int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 void cdb2lba(uint32_t *, uint16_t *, uint8_t *);
