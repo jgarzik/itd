@@ -91,6 +91,7 @@
 #endif
 
 #include <unistd.h>
+#include <glib.h>
 
 #include "iscsiutil.h"
 
@@ -1213,3 +1214,160 @@ void lba2cdb(uint8_t * cdb, uint32_t * lba, uint16_t * len)
 		cdb[8] = ((uint8_t *) (void *)len)[1];
 	}
 }
+
+enum {
+	NETMASK_BUFFER_SIZE = 256
+};
+
+/* this struct is used to define a magic netmask value */
+typedef struct magic_t {
+	const char *magic;	/* string to match */
+	const char *xform;	/* string to transform it into */
+} magic_t;
+
+static magic_t magics[] = {
+	{"any", "0/0"},
+	{"all", "0/0"},
+	{"none", "0/32"},
+	{NULL, NULL},
+};
+
+/* return 1 if address is in netmask's range */
+int allow_netmask(const char *netmaskarg, const char *addr)
+{
+	struct in_addr a;
+	struct in_addr m;
+	const char *netmask;
+	magic_t *mp;
+	char maskaddr[NETMASK_BUFFER_SIZE];
+	char *cp;
+	int slash;
+	int i;
+
+	/* firstly check for any magic values in the netmask */
+	netmask = netmaskarg;
+	for (mp = magics; mp->magic; mp++) {
+		if (strcmp(netmask, mp->magic) == 0) {
+			netmask = mp->xform;
+			break;
+		}
+	}
+
+	/* find out if slash notation has been used */
+	(void)memset(&a, 0x0, sizeof(a));
+	if ((cp = strchr(netmask, '/')) == NULL) {
+		(void)strlcpy(maskaddr, netmask, sizeof(maskaddr));
+		slash = 32;
+	} else {
+		(void)strlcpy(maskaddr, netmask,
+			      MIN(sizeof(maskaddr), (int)(cp - netmask) + 1));
+		slash = atoi(cp + 1);
+	}
+
+	/* if we have a wildcard "slash" netmask, then we allow it */
+	if (slash == 0) {
+		return 1;
+	}
+
+	/* canonicalise IPv4 address to dotted quad */
+	for (i = 0, cp = maskaddr; *cp; cp++) {
+		if (*cp == '.') {
+			i += 1;
+		}
+	}
+	for (; i < 3; i++) {
+		(void)strlcat(maskaddr, ".0", sizeof(maskaddr));
+	}
+
+	/* translate netmask to in_addr */
+	if (!inet_aton(maskaddr, &m)) {
+		(void)fprintf(stderr,
+			      "allow_netmask: can't interpret mask `%s' as an IPv4 address\n",
+			      maskaddr);
+		return 0;
+	}
+
+	/* translate address to in_addr */
+	if (!inet_aton(addr, &a)) {
+		(void)fprintf(stderr,
+			      "allow_netmask: can't interpret address `%s' as an IPv4 address\n",
+			      addr);
+		return 0;
+	}
+#ifdef ALLOW_NETMASK_DEBUG
+	printf("addr %s %08x, mask %s %08x, slash %d\n", addr,
+	       (htonl(a.s_addr) >> (32 - slash)), maskaddr,
+	       (htonl(m.s_addr) >> (32 - slash)), slash);
+#endif
+
+	/* and return 1 if address is in netmask */
+	return (htonl(a.s_addr) >> (32 - slash)) ==
+	    (htonl(m.s_addr) >> (32 - slash));
+}
+
+#ifndef HAVE_STRLCPY
+/*
+ * Copy src to string dst of size siz.  At most siz-1 characters
+ * will be copied.  Always NUL terminates (unless siz == 0).
+ * Returns strlen(src); if retval >= siz, truncation occurred.
+ */
+size_t strlcpy(char *dst, const char *src, size_t siz)
+{
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
+
+	/* Copy as many bytes as will fit */
+	if (n != 0 && --n != 0) {
+		do {
+			if ((*d++ = *s++) == 0)
+				break;
+		} while (--n != 0);
+	}
+
+	/* Not enough room in dst, add NUL and traverse rest of src */
+	if (n == 0) {
+		if (siz != 0)
+			*d = '\0';	/* NUL-terminate dst */
+		while (*s++) ;
+	}
+
+	return (s - src - 1);	/* count does not include NUL */
+}
+#endif
+
+#ifndef HAVE_STRLCAT
+/*
+ * Appends src to string dst of size siz (unlike strncat, siz is the
+ * full size of dst, not space left).  At most siz-1 characters
+ * will be copied.  Always NUL terminates (unless siz <= strlen(dst)).
+ * Returns strlen(src) + MIN(siz, strlen(initial dst)).
+ * If retval >= siz, truncation occurred.
+ */
+size_t strlcat(char *dst, const char *src, size_t siz)
+{
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
+	size_t dlen;
+
+	/* Find the end of dst and adjust bytes left but don't go past end */
+	while (n-- != 0 && *d != '\0')
+		d++;
+	dlen = d - dst;
+	n = siz - dlen;
+
+	if (n == 0)
+		return (dlen + strlen(s));
+	while (*s != '\0') {
+		if (n != 1) {
+			*d++ = *s;
+			n--;
+		}
+		s++;
+	}
+	*d = '\0';
+
+	return (dlen + (s - src));	/* count does not include NUL */
+}
+#endif
