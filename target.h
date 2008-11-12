@@ -120,8 +120,6 @@ typedef struct globals_t {
 	int sockv[MAXSOCK];	/* sockets on which it's listening */
 	int famv[MAXSOCK];	/* address families */
 	int state;		/* current state of target */
-	int listener_pid;	/* PID on which it's listening */
-	volatile int listener_listening;	/* whether a listener is listening */
 	char targetaddress[MAX_TGT_NAME_SIZE];	/* iSCSI TargetAddress set after iscsi_sock_accept() */
 	targv_t *tv;		/* array of target devices */
 	int address_family;	/* global default IP address family */

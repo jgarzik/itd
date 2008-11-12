@@ -1879,8 +1879,6 @@ int target_init(globals_t * gp, targv_t * tv, char *TargetName)
 		}
 	}
 	ISCSI_MUTEX_INIT(&g_session_q_mutex, return -1);
-	gp->listener_listening = 0;
-	gp->listener_pid = -1;
 	gp->state = TARGET_INITIALIZED;
 
 	printf("TARGET: TargetName is %s\n", gp->targetname);
@@ -1944,6 +1942,8 @@ int target_shutdown(globals_t * gp)
 				  "iscsi_sock_shutdown() failed\n");
 		return -1;
 	}
+
+#if 0
 	if (gp->listener_pid != getpid()) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "waiting for listener thread\n");
@@ -1952,6 +1952,8 @@ int target_shutdown(globals_t * gp)
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "listener thread has exited\n");
 	}
+#endif
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "closing accept socket\n");
 	if (iscsi_sock_close(gp->sock) != 0) {
@@ -1982,25 +1984,12 @@ int target_listen(globals_t * gp)
 	int i;
 
 	ISCSI_THREAD_START("listen_thread");
-	gp->listener_pid = getpid();
-	gp->listener_listening++;
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "listener thread started\n");
-
-	if (!iscsi_socks_establish
-	    (gp->sockv, gp->famv, &gp->sockc, gp->address_family, gp->port)) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_establish() failed\n");
-		goto done;
-	}
-	gp->sock = gp->sockv[0];
 
 	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
 		    "create, bind, listen OK\n");
 
-	/* Loop for connections: FIX ME with queue */
-
-	while (gp->state != TARGET_SHUT_DOWN) {
 		ISCSI_LOCK(&g_session_q_mutex, return -1);
 		if ((sess = iscsi_queue_remove(&g_session_q)) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -2149,8 +2138,6 @@ int target_listen(globals_t * gp)
 					  "iscsi_thread_create() failed\n");
 			goto done;
 		}
-	}
 done:
-	gp->listener_listening--;
 	return 0;
 }

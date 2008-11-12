@@ -169,7 +169,6 @@ int iscsi_queue_full(iscsi_queue_t *);
 #define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_socks_establish(int *, int *, int *, int, int);
 int iscsi_waitfor_connection(int *, int, const char *cf,
 			     int *);
 const char *iscsi_address_family(int);

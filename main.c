@@ -62,17 +62,35 @@ static void net_exit(void)
 	gnet_server_unref(tcp_srv);
 }
 
+static globals_t gbls;
+static targv_t tv_all[4];
+
+static int master_iscsi_init(void)
+{
+	return target_init(&gbls, tv_all, "MyFirstTarget");
+}
+
+static void master_iscsi_exit(void)
+{
+	target_shutdown(&gbls);
+}
+
 int main(int argc, char *argv[])
 {
 	GMainLoop *ml;
 
 	ml = g_main_loop_new(NULL, FALSE);
+	if (!ml)
+		return 1;
 
 	if (net_init())
+		return 1;
+	if (master_iscsi_init())
 		return 1;
 
 	g_main_loop_run(ml);
 
+	master_iscsi_exit();
 	net_exit();
 
 	g_main_loop_unref(ml);
