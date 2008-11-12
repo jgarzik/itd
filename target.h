@@ -115,7 +115,7 @@ enum {
 typedef struct globals_t {
 	char targetname[MAX_TGT_NAME_SIZE];	/* name of target */
 	uint16_t port;		/* target port */
-	int sock;	/* socket on which it's listening */
+	int sock;		/* socket on which it's listening */
 	int sockc;		/* # of live sockets on which it's listening */
 	int sockv[MAXSOCK];	/* sockets on which it's listening */
 	int famv[MAXSOCK];	/* address families */

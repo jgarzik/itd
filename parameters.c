@@ -60,8 +60,7 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	/* Allocated new parameter type */
 
 	if (*head == NULL) {
-		if ((*head =
-		     malloc(sizeof(iscsi_parameter_t))) == NULL) {
+		if ((*head = malloc(sizeof(iscsi_parameter_t))) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -70,8 +69,7 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	} else {
 		for (param = *head; param->next != NULL; param = param->next) {
 		}
-		if ((param->next =
-		     malloc(sizeof(iscsi_parameter_t))) == NULL) {
+		if ((param->next = malloc(sizeof(iscsi_parameter_t))) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -95,10 +93,8 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	/* Allocated space for value list and set first item to default; and */
 	/* set offer and answer lists to NULL */
 
-	if ((param->value_l =
-	     malloc(sizeof(iscsi_parameter_value_t))) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+	if ((param->value_l = malloc(sizeof(iscsi_parameter_value_t))) == NULL) {
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		return -1;
 	}
 	param->value_l->next = NULL;
@@ -499,13 +495,11 @@ param_parse_security(iscsi_parameter_t * head,
 	int ret = 1;
 
 	if ((chapstring = malloc(ISCSI_CHAP_STRING_LENGTH)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		return -1;
 	}
 	if ((context = malloc(sizeof(MD5_CTX))) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		if (chapstring != NULL)
 			free(chapstring);
 		return -1;
@@ -575,15 +569,16 @@ param_parse_security(iscsi_parameter_t * head,
 	} else if (strcmp(param_in->key, "CHAP_I") == 0) {
 
 		idData =
-		    driver_atoi((param_in->rx_offer) ? param_in->
-				offer_rx : param_in->answer_rx);
+		    driver_atoi((param_in->
+				 rx_offer) ? param_in->offer_rx : param_in->
+				answer_rx);
 		ret++;
 
 	} else if (strcmp(param_in->key, "CHAP_C") == 0) {
 
-		HexTextToData((param_in->rx_offer) ? param_in->
-			      offer_rx : param_in->answer_rx,
-			      ISCSI_CHAP_STRING_LENGTH, chapdata,
+		HexTextToData((param_in->
+			       rx_offer) ? param_in->offer_rx : param_in->
+			      answer_rx, ISCSI_CHAP_STRING_LENGTH, chapdata,
 			      ISCSI_CHAP_DATA_LENGTH);
 
 		if ((param = param_get(head, "CHAP_N")) == NULL) {
@@ -626,7 +621,7 @@ param_parse_security(iscsi_parameter_t * head,
 			PPS_ERROR;
 		} else {
 			MD5_Update(context, cred->shared_secret,
-				  strlen(cred->shared_secret));
+				   strlen(cred->shared_secret));
 		}
 
 		HexDataToText(chapdata, ISCSI_CHAP_DATA_LENGTH,
@@ -675,8 +670,8 @@ param_parse_security(iscsi_parameter_t * head,
 		char *user;
 
 		user =
-		    (param_in->rx_offer) ? param_in->offer_rx : param_in->
-		    answer_rx;
+		    (param_in->rx_offer) ? param_in->
+		    offer_rx : param_in->answer_rx;
 		if (!find_credentials(cred, user, "chap")) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "Unknown user `%s'\n", user);
@@ -701,15 +696,15 @@ param_parse_security(iscsi_parameter_t * head,
 			PPS_ERROR;
 		} else {
 			MD5_Update(context, cred->shared_secret,
-				  strlen(cred->shared_secret));
+				   strlen(cred->shared_secret));
 		}
 
 		MD5_Update(context, chapdata, ISCSI_CHAP_DATA_LENGTH);
 		MD5_Final(chapdata, context);
 
-		HexTextToData((param_in->rx_offer) ? param_in->
-			      offer_rx : param_in->answer_rx,
-			      ISCSI_CHAP_STRING_LENGTH, respdata,
+		HexTextToData((param_in->
+			       rx_offer) ? param_in->offer_rx : param_in->
+			      answer_rx, ISCSI_CHAP_STRING_LENGTH, respdata,
 			      ISCSI_CHAP_DATA_LENGTH);
 
 		HexDataToText(chapdata, ISCSI_CHAP_DATA_LENGTH,
@@ -765,21 +760,18 @@ param_text_parse(iscsi_parameter_t * head,
 		    outgoing ? "outgoing" : "incoming");
 
 	if ((key = malloc(ISCSI_PARAM_KEY_LEN)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		return -1;
 	}
 	if ((offer = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		if (key != NULL) {
 			free(key);
 		}
 		return -1;
 	}
 	if ((valid = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		if (key != NULL) {
 			free(key);
 		}
@@ -789,8 +781,7 @@ param_text_parse(iscsi_parameter_t * head,
 		return -1;
 	}
 	if ((val1 = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		if (key != NULL) {
 			free(key);
 		}
@@ -803,8 +794,7 @@ param_text_parse(iscsi_parameter_t * head,
 		return -1;
 	}
 	if ((val2 = malloc(ISCSI_PARAM_MAX_LEN)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		if (key != NULL) {
 			free(key);
 		}
@@ -857,8 +847,7 @@ param_text_parse(iscsi_parameter_t * head,
 		} else {
 			if ((int)(eq - ptr) >= (ISCSI_PARAM_KEY_LEN - 1)) {
 				if (!outgoing) {
-					tmp_key =
-					    malloc((unsigned)(eq - ptr));
+					tmp_key = malloc((unsigned)(eq - ptr));
 					if (tmp_key) {
 						strncpy(tmp_key, ptr,
 							(unsigned)(eq - ptr));
@@ -992,12 +981,13 @@ param_text_parse(iscsi_parameter_t * head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						(void)strlcpy(auth_result->
-							      value_l->value,
-							      "Fail",
-							      sizeof
-							      (auth_result->
-							       value_l->value));
+						(void)
+						    strlcpy
+						    (auth_result->value_l->
+						     value, "Fail",
+						     sizeof
+						     (auth_result->value_l->
+						      value));
 					}
 					PTP_CLEANUP;
 					return (ISCSI_PARAM_STATUS_AUTH_FAILED);
@@ -1006,12 +996,13 @@ param_text_parse(iscsi_parameter_t * head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						(void)strlcpy(auth_result->
-							      value_l->value,
-							      "Yes",
-							      sizeof
-							      (auth_result->
-							       value_l->value));
+						(void)
+						    strlcpy
+						    (auth_result->value_l->
+						     value, "Yes",
+						     sizeof
+						     (auth_result->value_l->
+						      value));
 					}
 				}
 				/*
@@ -1120,8 +1111,8 @@ binary_or:
 					if (strcmp(param->dflt, offer) == 0) {
 						(void)strlcpy(param->answer_tx,
 							      offer,
-							      sizeof(param->
-								     answer_tx));
+							      sizeof
+							      (param->answer_tx));
 						goto add_answer;
 					}
 				}
@@ -1151,12 +1142,12 @@ binary_or:
 								      ISCSI_PARAM_MAX_LEN);
 						}
 						if (strcmp(valid, offer) == 0) {
-							(void)strlcpy(param->
-								      answer_tx,
-								      offer,
-								      sizeof
-								      (param->
-								       answer_tx));
+							(void)
+							    strlcpy
+							    (param->answer_tx,
+							     offer,
+							     sizeof
+							     (param->answer_tx));
 							goto add_answer;
 						}
 					}
@@ -1289,12 +1280,12 @@ binary_or_negotiate:
 				    || strcmp(val1, "Yes") == 0
 				    || strcmp(val2, "Yes") == 0) {
 					(void)strlcpy(param->negotiated, "Yes",
-						      sizeof(param->
-							     negotiated));
+						      sizeof
+						      (param->negotiated));
 				} else {
 					(void)strlcpy(param->negotiated, "No",
-						      sizeof(param->
-							     negotiated));
+						      sizeof
+						      (param->negotiated));
 				}
 			} else {
 				if ((strcmp(val1, "yes") == 0
@@ -1302,12 +1293,12 @@ binary_or_negotiate:
 				    || (strcmp(val1, "Yes") == 0
 					&& strcmp(val2, "Yes") == 0)) {
 					(void)strlcpy(param->negotiated, "Yes",
-						      sizeof(param->
-							     negotiated));
+						      sizeof
+						      (param->negotiated));
 				} else {
 					(void)strlcpy(param->negotiated, "No",
-						      sizeof(param->
-							     negotiated));
+						      sizeof
+						      (param->negotiated));
 				}
 			}
 			break;
@@ -1479,8 +1470,7 @@ value_ok:
 				     item_ptr = item_ptr->next) {
 				}
 				if ((item_ptr->next =
-				     malloc(sizeof
-							 (iscsi_parameter_value_t)))
+				     malloc(sizeof(iscsi_parameter_value_t)))
 				    == NULL) {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "malloc() failed\n");
@@ -1495,9 +1485,7 @@ value_ok:
 			iscsi_trace(TRACE_ISCSI_PARAM, __FILE__, __LINE__,
 				    "allocating value ptr\n");
 			if ((param->value_l =
-			     malloc(sizeof
-						 (iscsi_parameter_value_t))) ==
-			    NULL) {
+			     malloc(sizeof(iscsi_parameter_value_t))) == NULL) {
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "malloc() failed\n");
 				PTP_ERROR;

@@ -1123,7 +1123,7 @@ int iscsi_scsi_cmd_encap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
 	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Task Tag  */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->trans_len);	/* Expected Transfer
-										 * Length */
+									 * Length */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->CmdSN);	/* CmdSN */
 	*((uint32_t *) (void *)(header + 28)) = htonl(cmd->ExpStatSN);	/* ExpStatSN */
 	memcpy(header + 32, cmd->cdb, 16);	/* CDB */
@@ -1148,7 +1148,7 @@ int iscsi_scsi_cmd_decap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
 	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Task Tag */
 	cmd->trans_len = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Expected Transfer
-										 * Length */
+									 * Length */
 	cmd->CmdSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* CmdSN  */
 	cmd->ExpStatSN = ntohl(*((uint32_t *) (void *)(header + 28)));	/* ExpStatSN */
 	cmd->cdb = header + 32;	/* CDB */

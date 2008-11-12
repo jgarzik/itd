@@ -148,10 +148,8 @@ int iscsi_queue_init(iscsi_queue_t * q, int depth)
 {
 	q->head = q->tail = q->count = 0;
 	q->depth = depth;
-	if ((q->elem =
-	     malloc((unsigned)(depth * sizeof(void *)))) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "malloc() failed\n");
+	if ((q->elem = malloc((unsigned)(depth * sizeof(void *)))) == NULL) {
+		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		return -1;
 	}
 	iscsi_spin_init(&q->lock);
@@ -258,8 +256,7 @@ void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 	va_end(vp);
 	printf("pid %d:%s:%d: ***ERROR*** %s", (int)getpid, f, line, buf);
 #  ifdef HAVE_SYSLOG
-	syslog(LOG_ERR, "pid %d:%s:%d: ***ERROR*** %s", getpid, f, line,
-	       buf);
+	syslog(LOG_ERR, "pid %d:%s:%d: ***ERROR*** %s", getpid, f, line, buf);
 #  endif /* HAVE_SYSLOG */
 #endif
 }
@@ -370,7 +367,7 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 }
 
 int
-iscsi_sock_setsockopt(int * sock, int level, int optname,
+iscsi_sock_setsockopt(int *sock, int level, int optname,
 		      void *optval, unsigned optlen)
 {
 	int rc;
@@ -398,9 +395,7 @@ const char *iscsi_address_family(int fam)
 
 /* wait for a connection to come in on a socket */
 /* ARGSUSED2 */
-int
-iscsi_waitfor_connection(int * sockv, int sockc, const char *cf,
-			 int * sock)
+int iscsi_waitfor_connection(int *sockv, int sockc, const char *cf, int *sock)
 {
 #ifdef HAVE_POLL
 	struct pollfd socks[MAXSOCK];
@@ -466,7 +461,7 @@ iscsi_waitfor_connection(int * sockv, int sockc, const char *cf,
 #endif
 }
 
-int iscsi_sock_accept(int sock, int * newsock)
+int iscsi_sock_accept(int sock, int *newsock)
 {
 	struct sockaddr_in remoteAddr;
 	socklen_t remoteAddrLen;
@@ -485,9 +480,7 @@ int iscsi_sock_accept(int sock, int * newsock)
 	return 1;
 }
 
-int
-iscsi_sock_getsockname(int sock, struct sockaddr *name,
-		       unsigned *namelen)
+int iscsi_sock_getsockname(int sock, struct sockaddr *name, unsigned *namelen)
 {
 	if (getsockname(sock, name, namelen) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -497,9 +490,7 @@ iscsi_sock_getsockname(int sock, struct sockaddr *name,
 	return 1;
 }
 
-int
-iscsi_sock_getpeername(int sock, struct sockaddr *name,
-		       unsigned *namelen)
+int iscsi_sock_getpeername(int sock, struct sockaddr *name, unsigned *namelen)
 {
 	if (getpeername(sock, name, namelen) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -539,9 +530,7 @@ int iscsi_sock_close(int sock)
  * and resent with the appropriate offsets.
  */
 
-int
-iscsi_sock_msg(int sock, int xmit, unsigned len, void *data,
-	       int iovc)
+int iscsi_sock_msg(int sock, int xmit, unsigned len, void *data, int iovc)
 {
 	int i, n = 0;
 	int rc;
@@ -572,8 +561,7 @@ iscsi_sock_msg(int sock, int xmit, unsigned len, void *data,
 
 	if ((remainder = len % ISCSI_SOCK_MSG_BYTE_ALIGN) != 0) {
 		if ((iov_padding =
-		     malloc((iovc + 1) * sizeof(struct iovec))) ==
-		    NULL) {
+		     malloc((iovc + 1) * sizeof(struct iovec))) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "malloc() failed\n");
 			return -1;

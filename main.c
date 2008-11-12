@@ -27,7 +27,7 @@ int device_shutdown(target_session_t * f)
 	return -1;
 }
 
-static void tcp_event(GConn *conn, GConnEvent *evt, gpointer user_data)
+static void tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 {
 	switch (evt->type) {
 	case GNET_CONN_ERROR:
@@ -43,7 +43,7 @@ static void tcp_event(GConn *conn, GConnEvent *evt, gpointer user_data)
 	}
 }
 
-static void tcp_srv_event(GServer *srv, GConn *conn, gpointer user_data)
+static void tcp_srv_event(GServer * srv, GConn * conn, gpointer user_data)
 {
 	gnet_conn_set_callback(conn, tcp_event, NULL);
 }
@@ -53,7 +53,7 @@ static int net_init(void)
 	tcp_srv = gnet_server_new(NULL, 3260, tcp_srv_event, NULL);
 	if (!tcp_srv)
 		return -1;
-	
+
 	return 0;
 }
 
