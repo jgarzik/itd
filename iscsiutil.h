@@ -121,7 +121,7 @@ void set_debug(const char *);
 void iscsi_trace(const int, const char *, const int, const char *, ...);
 void iscsi_trace_warning(const char *, const int, const char *, ...);
 void iscsi_trace_error(const char *, const int, const char *, ...);
-void iscsi_print_buffer(const char *, const size_t);
+void iscsi_print_buffer(uint8_t *, const size_t);
 
 /* Spin locks */
 
@@ -172,7 +172,6 @@ int iscsi_queue_full(iscsi_queue_t *);
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
 int iscsi_sock_shutdown(int, int);
-int iscsi_sock_close(int);
 int iscsi_sock_msg(int, int, unsigned, void *, int);
 int iscsi_sock_send_header_and_data(GConn *,
 				    const void *, unsigned,

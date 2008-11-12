@@ -12,6 +12,10 @@ uint32_t iscsi_debug_level = 0;
 
 static GServer *tcp_srv;
 
+static globals_t gbls = {
+	.port = 3260,
+};
+
 int device_init(globals_t * a, targv_t * b, disc_target_t * c)
 {
 	return -1;
@@ -27,25 +31,9 @@ int device_shutdown(target_session_t * f)
 	return -1;
 }
 
-static void tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
-{
-	switch (evt->type) {
-	case GNET_CONN_ERROR:
-	case GNET_CONN_CONNECT:
-	case GNET_CONN_CLOSE:
-	case GNET_CONN_TIMEOUT:
-	case GNET_CONN_READ:
-	case GNET_CONN_WRITE:
-	case GNET_CONN_READABLE:
-	case GNET_CONN_WRITABLE:
-		/* do nothing */
-		break;
-	}
-}
-
 static void tcp_srv_event(GServer * srv, GConn * conn, gpointer user_data)
 {
-	gnet_conn_set_callback(conn, tcp_event, NULL);
+	target_accept(&gbls, conn);
 }
 
 static int net_init(void)
@@ -61,10 +49,6 @@ static void net_exit(void)
 {
 	gnet_server_unref(tcp_srv);
 }
-
-static globals_t gbls = {
-	.port = 3260,
-};
 
 static targv_t tv_all[4];
 

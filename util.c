@@ -242,7 +242,7 @@ void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 #endif
 }
 
-void iscsi_print_buffer(const char *buf, const size_t len)
+void iscsi_print_buffer(uint8_t *buf, const size_t len)
 {
 #ifdef CONFIG_ISCSI_DEBUG
 	int i;
@@ -358,19 +358,6 @@ int iscsi_sock_shutdown(int sock, int how)
 	if ((rc = shutdown(sock, how)) != 0) {
 		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
 			    "shutdown() failed: rc %d, errno %d\n", rc, errno);
-	}
-	return 0;
-}
-
-int iscsi_sock_close(int sock)
-{
-	int rc;
-
-	if ((rc = close(sock)) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "close() failed: rc %d errno %d\n", rc,
-				  errno);
-		return -1;
 	}
 	return 0;
 }

@@ -129,6 +129,12 @@ typedef struct globals_t {
 	uint32_t last_tsih;	/* the last TSIH that was used */
 } globals_t;
 
+enum session_read_state {
+	srs_err,
+	srs_basic_hdr,
+	srs_ahs_data,
+};
+
 /* session parameters */
 typedef struct target_session_t {
 	int id;
@@ -152,6 +158,10 @@ typedef struct target_session_t {
 	char initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	int address_family;
 	int32_t last_tsih;
+	enum session_read_state readst;
+	uint8_t header[ISCSI_HEADER_LEN];
+	uint8_t *ahs;
+	int ahs_len;
 } target_session_t;
 
 typedef struct target_cmd_t {
@@ -167,8 +177,6 @@ extern int target_sess_cleanup(target_session_t *sess);
 extern int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
 			 struct iovec *, int);
 
-static int find_target_tsih(globals_t *, int);
-static int find_target_iqn(target_session_t *);
 
 /* 
  * Interface from target to device:

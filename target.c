@@ -225,14 +225,9 @@ static int scsi_command_t(target_session_t * sess, uint8_t * header)
 		free(scsi_cmd.ahs);			\
 	}								\
 } while (/* CONSTCOND */ 0)
-		if (iscsi_sock_msg
-		    (sess->sock, 0, (unsigned)scsi_cmd.ahs_len, scsi_cmd.ahs,
-		     0) != scsi_cmd.ahs_len) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			AHS_CLEANUP;
-			return -1;
-		}
+
+		memcpy(scsi_cmd.ahs, sess->ahs, scsi_cmd.ahs_len);
+
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "read %d bytes AHS\n", scsi_cmd.ahs_len);
 		for (ahs_ptr = scsi_cmd.ahs;
@@ -576,20 +571,15 @@ static int task_command_t(target_session_t * sess, uint8_t * header)
 				  "iscsi_task_cmd_decap() failed\n");
 		return -1;
 	}
-	if (iscsi_sock_msg(sess->sock, 1, ISCSI_HEADER_LEN, rsp_header, 0) !=
-	    ISCSI_HEADER_LEN) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_msg() failed\n");
-		return -1;
 
-	}
+	gnet_conn_write(sess->conn, (gchar *) rsp_header, ISCSI_HEADER_LEN);
+
 	return 0;
 }
 
 static int nop_out_t(target_session_t * sess, uint8_t * header)
 {
 	iscsi_nop_out_args_t nop_out;
-	char *ping_data = NULL;
 
 	if (iscsi_nop_out_decap(header, &nop_out) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -608,25 +598,9 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
 
 	if (nop_out.length) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "reading %d bytes ping data\n", nop_out.length);
-		if ((ping_data = malloc(nop_out.length)) == NULL) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "malloc() failed\n");
-			return -1;
-		}
-		if (iscsi_sock_msg(sess->sock, 0, nop_out.length, ping_data, 0)
-		    != nop_out.length) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			if (ping_data) {
-				free(ping_data);
-			}
-			return -1;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "successfully read %d bytes ping data:\n",
 			    nop_out.length);
-		iscsi_print_buffer(ping_data, nop_out.length);
+		iscsi_print_buffer(sess->buff, nop_out.length);
 	}
 	if (nop_out.tag != 0xffffffff) {
 		iscsi_nop_in_args_t nop_in;
@@ -646,28 +620,18 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
 		if (iscsi_nop_in_encap(rsp_header, &nop_in) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_nop_in_encap() failed\n");
-			if (ping_data) {
-				free(ping_data);
-			}
 			return -1;
 		}
 		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
-				ISCSI_HEADER_LEN, ping_data,
-				nop_in.length, 0) !=
+			ISCSI_HEADER_LEN, sess->buff, nop_in.length, 0) !=
 					ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
-			if (ping_data) {
-				free(ping_data);
-			}
 			return -1;
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "successfully sent %d bytes ping response\n",
 			    nop_out.length);
-	}
-	if (ping_data) {
-		free(ping_data);
 	}
 	return 0;
 }
@@ -732,12 +696,9 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "reading %d bytes text parameters\n", len_in);
-		if (iscsi_sock_msg(sess->sock, 0, len_in, text_in, 0) != len_in) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			TC_CLEANUP;
-			return -1;
-		}
+
+		memcpy(text_in, sess->buff, len_in);
+
 		text_in[len_in] = 0x0;
 		PARAM_TEXT_PARSE(sess->params, &sess->sess_params.cred, text_in,
 				 (int)len_in, text_out, (int *)(void *)&len_out,
@@ -834,23 +795,12 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 		TC_CLEANUP;
 		return -1;
 	}
-	if (iscsi_sock_msg(sess->sock, 1, ISCSI_HEADER_LEN, rsp_header, 0) !=
-	    ISCSI_HEADER_LEN) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_msg() failed\n");
-		TC_CLEANUP;
-		return -1;
-	}
-	if (len_out) {
-		if (iscsi_sock_msg
-		    (sess->sock, 1, (unsigned)len_out, text_out,
-		     0) != len_out) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			TC_CLEANUP;
-			return -1;
-		}
-	}
+
+	gnet_conn_write(sess->conn, (gchar *) rsp_header, ISCSI_HEADER_LEN);
+
+	if (len_out)
+		gnet_conn_write(sess->conn, text_out, len_out);
+
 	TC_CLEANUP;
 	return 0;
 }
@@ -969,13 +919,9 @@ static int login_command_t(target_session_t * sess, uint8_t * header)
 			LC_CLEANUP;
 			return -1;
 		}
-		if (iscsi_sock_msg(sess->sock, 0, (unsigned)len_in, text_in, 0)
-		    != len_in) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			LC_CLEANUP;
-			return -1;
-		}
+
+		memcpy(text_in, sess->buff, len_in);
+
 		text_in[len_in] = 0x0;
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "successfully read %d bytes text data\n", len_in);
@@ -1171,16 +1117,7 @@ response:
 
 		/* Buffer for data xfers to/from the scsi device */
 		if (!param_equiv(sess->params, "MaxRecvDataSegmentLength", "0")) {
-			if ((sess->buff = malloc((unsigned)
-						 (param_atoi
-						  (sess->params,
-						   "MaxRecvDataSegmentLength"))))
-			    == NULL) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "malloc() failed\n");
-				LC_CLEANUP;
-				return -1;
-			}
+			/* do nothing */
 		} else {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "MaxRecvDataSegmentLength of 0 not supported\n");
@@ -1224,12 +1161,9 @@ static int logout_command_t(target_session_t * sess, uint8_t * header)
 				  "iscsi_logout_rsp_encap() failed\n");
 		return -1;
 	}
-	if (iscsi_sock_msg(sess->sock, 1, ISCSI_HEADER_LEN, rsp_header, 0) !=
-	    ISCSI_HEADER_LEN) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_msg() failed\n");
-		return -1;
-	}
+
+	gnet_conn_write(sess->conn, (gchar *) rsp_header, ISCSI_HEADER_LEN);
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sent logout response OK\n");
 
@@ -1775,13 +1709,6 @@ int target_shutdown(globals_t * gp)
 	}
 #endif
 
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "closing accept socket\n");
-	if (iscsi_sock_close(gp->sock) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_close() failed\n");
-		return -1;
-	}
 	ISCSI_MUTEX_DESTROY(&g_session_q_mutex, return -1);
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "target shutdown complete\n");
@@ -1794,18 +1721,15 @@ int target_sess_cleanup(target_session_t *sess)
 {
 	/* Clean up */
 
-	free(sess->buff);
 	if (param_list_destroy(sess->params) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "param_list_destroy() failed\n");
 		return -1;
 	}
-	/* Terminate connection */
 
-	if (iscsi_sock_close(sess->sock) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_close() failed\n");
-	}
+	/* Terminate connection */
+	gnet_conn_unref(sess->conn);
+
 	/* Make session available */
 
 	ISCSI_LOCK(&g_session_q_mutex, return -1);
@@ -1822,12 +1746,81 @@ int target_sess_cleanup(target_session_t *sess)
 	return 0;
 }
 
+static void target_read_evt(target_session_t *sess, GConnEvent *evt)
+{
+	uint8_t *buf;
+	uint32_t v;
+
+	switch (sess->readst) {
+	case srs_basic_hdr:
+		buf = (uint8_t *) evt->buffer;
+
+		memcpy(sess->header, buf, ISCSI_HEADER_LEN);
+
+		v = sess->ahs_len = buf[4];
+		buf[4] = 0;
+
+		v += ntohl(*((uint32_t *) (void *)(buf + 4))); /* data len */
+
+		if (!v) {	/* PDU is complete, nothing else to read */
+			sess->buff = NULL;
+			sess->ahs = NULL;
+			execute_t(sess, sess->header);
+			break;
+		}
+
+		gnet_conn_readn(sess->conn, v);
+		sess->readst = srs_ahs_data;
+		break;
+		
+	case srs_ahs_data:
+		if (sess->ahs_len)
+			sess->ahs = (uint8_t *) evt->buffer;
+		else
+			sess->ahs = NULL;
+
+		if (evt->length > sess->header[4])
+			sess->buff = (uint8_t *) evt->buffer + sess->ahs_len;
+		else
+			sess->buff = NULL;
+
+		execute_t(sess, sess->header);
+
+		gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
+		sess->readst = srs_basic_hdr;
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
+{
+	target_session_t *sess = user_data;
+
+	switch (evt->type) {
+	case GNET_CONN_READ:
+		target_read_evt(sess, evt);
+		break;
+
+	case GNET_CONN_ERROR:
+	case GNET_CONN_CONNECT:
+	case GNET_CONN_CLOSE:
+	case GNET_CONN_TIMEOUT:
+	case GNET_CONN_WRITE:
+	case GNET_CONN_READABLE:
+	case GNET_CONN_WRITABLE:
+		/* do nothing */
+		break;
+	}
+}
+
 int target_accept(globals_t * gp, GConn * conn)
 {
 	target_session_t *sess;
 	char remote[1024];
 	char local[1024];
-	uint8_t header[ISCSI_HEADER_LEN];
 	GInetAddr *addr;
 	gchar *addr_s;
 	iscsi_parameter_t **l;
@@ -1973,35 +1966,24 @@ int target_accept(globals_t * gp, GConn * conn)
 	sess->UsePhaseCollapsedRead = ISCSI_USE_PHASE_COLLAPSED_READ_DFLT;
 
 	/* Loop for commands */
+	gnet_conn_set_callback(conn, target_tcp_event, sess);
 
+	gnet_conn_readn(conn, ISCSI_HEADER_LEN);
+	sess->readst = srs_basic_hdr;
+
+#if 0
 	while (sess->globals->state != TARGET_SHUT_DOWN) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: reading header\n", sess->id);
-		if (iscsi_sock_msg(sess->sock, 0, ISCSI_HEADER_LEN, header, 0)
-		    != ISCSI_HEADER_LEN) {
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "session %d: iscsi_sock_msg() failed\n",
-				    sess->id);
-			break;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: iscsi op %#x\n", sess->id,
-			    ISCSI_OPCODE(header));
+
 		if (execute_t(sess, header) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "execute_t() failed\n");
-			break;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: iscsi op %#x complete\n", sess->id,
-			    ISCSI_OPCODE(header));
+
 		if (ISCSI_OPCODE(header) == ISCSI_LOGOUT_CMD) {
 			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "session %d: logout received, ending session\n",
-				    sess->id);
+			    "session %d: logout received, ending session\n",
+			    sess->id);
 			break;
 		}
 	}
+#endif
 
 done:
 	return 0;
