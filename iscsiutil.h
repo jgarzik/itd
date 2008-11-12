@@ -223,50 +223,6 @@ int iscsi_mutex_destroy(iscsi_mutex_t *);
 } while (/* CONSTCOND */ 0)
 
 /*
- * Threading Routines
- */
-
-typedef struct iscsi_thread_t {
-	pthread_t pthread;
-} iscsi_thread_t;
-
-int iscsi_thread_create(iscsi_thread_t *, void *(*proc) (void *), void *);
-
-#define ISCSI_SET_THREAD(ME)	/* for user pthread id set by pthread_create
-				 * in iscsi_thread_create */
-#define ISCSI_THREAD_START(NAME)
-
-/*
- * Worker Thread
- */
-
-#define ISCSI_WORKER_STATE_STARTED   1
-#define ISCSI_WORKER_STATE_ERROR     2
-#define ISCSI_WORKER_STATE_EXITING   4
-
-typedef struct {
-	iscsi_thread_t thread;
-	iscsi_mutex_t work_mutex;
-	pthread_cond_t work_cond;
-	iscsi_mutex_t exit_mutex;
-	pthread_cond_t exit_cond;
-	int id;
-	int pid;
-	volatile uint32_t state;
-} iscsi_worker_t;
-
-#define ISCSI_WORKER_EXIT(ME) do {					\
-	iscsi_trace(TRACE_ISCSI_DEBUG ,__FILE__, __LINE__, "exiting\n");			\
-	(ME)->state |= ISCSI_WORKER_STATE_EXITING;			\
-	return 0;							\
-} while (/* CONSTCOND */ 0)
-
-/*
- * Spin Lock
- */
-#define ISCSI_SPIN
-
-/*
  * Pre/Post condition checking
  */
 

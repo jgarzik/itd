@@ -123,25 +123,6 @@ void set_debug(const char *level)
 }
 
 /*
- * Threading Routines
- */
-int
-iscsi_thread_create(iscsi_thread_t * thread, void *(*proc) (void *), void *arg)
-{
-	if (pthread_create(&thread->pthread, NULL, proc, arg) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "pthread_create() failed\n");
-		return -1;
-	}
-	if (pthread_detach(thread->pthread) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "pthread_detach() failed\n");
-		return -1;
-	}
-	return 0;
-}
-
-/*
  * Queuing Functions
  */
 int iscsi_queue_init(iscsi_queue_t * q, int depth)

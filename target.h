@@ -147,7 +147,6 @@ typedef struct target_session_t {
 	uint64_t isid;
 	int tsih;
 	globals_t *globals;
-	iscsi_worker_t worker;
 	iscsi_parameter_t *params;
 	iscsi_sess_param_t sess_params;
 	char initiator[MAX_INITIATOR_ADDRESS_SIZE];

@@ -1396,171 +1396,6 @@ static int execute_t(target_session_t * sess, uint8_t * header)
 	return 0;
 }
 
-/*
- * Currently one thread per session, used for both Rx and Tx.
- */
-
-static int worker_proc_t(void *arg)
-{
-	target_session_t *sess = (target_session_t *) arg;
-	uint8_t header[ISCSI_HEADER_LEN];
-	iscsi_parameter_t **l = &sess->params;
-
-	ISCSI_THREAD_START("worker_thread");
-	sess->worker.pid = getpid();
-	sess->worker.state |= ISCSI_WORKER_STATE_STARTED;
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "session %d: started\n", sess->id);
-
-	/*
-	 * ISCSI_PARAM_TYPE_LIST format:        <type> <key> <dflt> <valid list values>
-	 * ISCSI_PARAM_TYPE_BINARY format:      <type> <key> <dflt> <valid binary values>
-	 * ISCSI_PARAM_TYPE_NUMERICAL format:   <type> <key> <dflt> <max>
-	 * ISCSI_PARAM_TYPE_DECLARATIVE format: <type> <key> <dflt> ""
-	 */
-
-	sess->params = NULL;
-	l = &sess->params;
-
-	/* CHAP Parameters */
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "AuthMethod", "CHAP",
-		       "CHAP,None", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "CHAP_A", "None", "5",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_N", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_R", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_I", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_C", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetPortalGroupTag",
-		       "1", "1", return -1);
-	/* CHAP Parameters */
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "HeaderDigest", "None", "None",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "DataDigest", "None", "None",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "MaxConnections", "1",
-		       "1", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "SendTargets", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetName", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "InitiatorName", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetAlias", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "InitiatorAlias", "",
-		       "", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetAddress", "", "",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "InitialR2T", "Yes",
-		       "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "OFMarker", "No",
-		       "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "IFMarker", "No",
-		       "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "OFMarkInt", "1",
-		       "65536", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "IFMarkInt", "1",
-		       "65536", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "ImmediateData", "Yes",
-		       "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z,
-		       "MaxRecvDataSegmentLength", "8192", "16777215",
-		       return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "MaxBurstLength",
-		       "262144", "16777215", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "FirstBurstLength",
-		       "65536", "16777215", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "DefaultTime2Wait", "2",
-		       "2", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "DefaultTime2Retain",
-		       "20", "20", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "MaxOutstandingR2T", "1",
-		       "1", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "DataPDUInOrder", "Yes",
-		       "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "DataSequenceInOrder",
-		       "Yes", "Yes,No", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "ErrorRecoveryLevel", "0",
-		       "0", return -1);
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "SessionType", "Normal",
-		       "Normal,Discovery", return -1);
-	/*
-	 * Auth Result is not in specs, we use this key to pass
-	 * authentication result
-	 */
-	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "AuthResult", "No",
-		       "Yes,No,Fail", return -1);
-
-	/* Set remaining session parameters  */
-
-	sess->UsePhaseCollapsedRead = ISCSI_USE_PHASE_COLLAPSED_READ_DFLT;
-
-	/* Loop for commands */
-
-	while (sess->globals->state != TARGET_SHUT_DOWN) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: reading header\n", sess->id);
-		if (iscsi_sock_msg(sess->sock, 0, ISCSI_HEADER_LEN, header, 0)
-		    != ISCSI_HEADER_LEN) {
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "session %d: iscsi_sock_msg() failed\n",
-				    sess->id);
-			break;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: iscsi op %#x\n", sess->id,
-			    ISCSI_OPCODE(header));
-		if (execute_t(sess, header) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "execute_t() failed\n");
-			break;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: iscsi op %#x complete\n", sess->id,
-			    ISCSI_OPCODE(header));
-		if (ISCSI_OPCODE(header) == ISCSI_LOGOUT_CMD) {
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "session %d: logout received, ending session\n",
-				    sess->id);
-			break;
-		}
-	}
-
-	/* Clean up */
-
-	free(sess->buff);
-	if (param_list_destroy(sess->params) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "param_list_destroy() failed\n");
-		return -1;
-	}
-	/* Terminate connection */
-
-	if (iscsi_sock_close(sess->sock) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_close() failed\n");
-	}
-	/* Make session available */
-
-	ISCSI_LOCK(&g_session_q_mutex, return -1);
-	(void)memset(sess, 0x0, sizeof(*sess));
-	if (iscsi_queue_insert(&g_session_q, sess) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_queue_insert() failed\n");
-		return -1;
-	}
-	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "session %d: ended\n", sess->id);
-
-	return 0;
-}
-
 static int
 read_data_pdu(target_session_t * sess,
 	      iscsi_write_data_t * data, iscsi_scsi_cmd_args_t * args)
@@ -1914,16 +1749,6 @@ int target_shutdown(globals_t * gp)
 						  "iscsi_sock_shutdown() failed\n");
 				return -1;
 			}
-			printf("waiting for worker %d (pid %d, state %d)\n", i,
-			       sess->worker.pid, sess->worker.state);
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "waiting for worker %d (pid %d, state %d)\n",
-				    i, sess->worker.pid, sess->worker.state);
-			while (sess->worker.state & ISCSI_WORKER_STATE_STARTED) {
-				ISCSI_SPIN;
-			}
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "worker %d has exited\n", i);
 		}
 		if (device_shutdown(sess) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -1942,8 +1767,9 @@ int target_shutdown(globals_t * gp)
 	if (gp->listener_pid != getpid()) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "waiting for listener thread\n");
-		while (gp->listener_listening)
-			ISCSI_SPIN;
+		while (gp->listener_listening) {
+			/* do nothing */
+		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "listener thread has exited\n");
 	}
@@ -1969,10 +1795,11 @@ int target_accept(globals_t * gp, GConn * conn)
 	target_session_t *sess;
 	char remote[1024];
 	char local[1024];
+	uint8_t header[ISCSI_HEADER_LEN];
 	GInetAddr *addr;
 	gchar *addr_s;
+	iscsi_parameter_t **l;
 
-	ISCSI_THREAD_START("listen_thread");
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "listener thread started\n");
 
@@ -2025,12 +1852,152 @@ int target_accept(globals_t * gp, GConn * conn)
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "TargetAddress = \"%s\"\n", gp->targetaddress);
 
-	if (iscsi_thread_create
-	    (&sess->worker.thread, (void *)worker_proc_t, sess) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_thread_create() failed\n");
-		goto done;
+	/*
+	 * ISCSI_PARAM_TYPE_LIST format:        <type> <key> <dflt> <valid list values>
+	 * ISCSI_PARAM_TYPE_BINARY format:      <type> <key> <dflt> <valid binary values>
+	 * ISCSI_PARAM_TYPE_NUMERICAL format:   <type> <key> <dflt> <max>
+	 * ISCSI_PARAM_TYPE_DECLARATIVE format: <type> <key> <dflt> ""
+	 */
+
+	sess->params = NULL;
+	l = &sess->params;
+
+	/* CHAP Parameters */
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "AuthMethod", "CHAP",
+		       "CHAP,None", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "CHAP_A", "None", "5",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_N", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_R", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_I", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "CHAP_C", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetPortalGroupTag",
+		       "1", "1", return -1);
+	/* CHAP Parameters */
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "HeaderDigest", "None", "None",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "DataDigest", "None", "None",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "MaxConnections", "1",
+		       "1", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "SendTargets", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetName", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "InitiatorName", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetAlias", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "InitiatorAlias", "",
+		       "", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "TargetAddress", "", "",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "InitialR2T", "Yes",
+		       "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "OFMarker", "No",
+		       "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "IFMarker", "No",
+		       "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "OFMarkInt", "1",
+		       "65536", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "IFMarkInt", "1",
+		       "65536", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_AND, "ImmediateData", "Yes",
+		       "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z,
+		       "MaxRecvDataSegmentLength", "8192", "16777215",
+		       return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "MaxBurstLength",
+		       "262144", "16777215", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL_Z, "FirstBurstLength",
+		       "65536", "16777215", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "DefaultTime2Wait", "2",
+		       "2", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "DefaultTime2Retain",
+		       "20", "20", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "MaxOutstandingR2T", "1",
+		       "1", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "DataPDUInOrder", "Yes",
+		       "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_BINARY_OR, "DataSequenceInOrder",
+		       "Yes", "Yes,No", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_NUMERICAL, "ErrorRecoveryLevel", "0",
+		       "0", return -1);
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_DECLARATIVE, "SessionType", "Normal",
+		       "Normal,Discovery", return -1);
+	/*
+	 * Auth Result is not in specs, we use this key to pass
+	 * authentication result
+	 */
+	PARAM_LIST_ADD(l, ISCSI_PARAM_TYPE_LIST, "AuthResult", "No",
+		       "Yes,No,Fail", return -1);
+
+	/* Set remaining session parameters  */
+
+	sess->UsePhaseCollapsedRead = ISCSI_USE_PHASE_COLLAPSED_READ_DFLT;
+
+	/* Loop for commands */
+
+	while (sess->globals->state != TARGET_SHUT_DOWN) {
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "session %d: reading header\n", sess->id);
+		if (iscsi_sock_msg(sess->sock, 0, ISCSI_HEADER_LEN, header, 0)
+		    != ISCSI_HEADER_LEN) {
+			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+				    "session %d: iscsi_sock_msg() failed\n",
+				    sess->id);
+			break;
+		}
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "session %d: iscsi op %#x\n", sess->id,
+			    ISCSI_OPCODE(header));
+		if (execute_t(sess, header) != 0) {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "execute_t() failed\n");
+			break;
+		}
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "session %d: iscsi op %#x complete\n", sess->id,
+			    ISCSI_OPCODE(header));
+		if (ISCSI_OPCODE(header) == ISCSI_LOGOUT_CMD) {
+			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+				    "session %d: logout received, ending session\n",
+				    sess->id);
+			break;
+		}
 	}
+
+	/* Clean up */
+
+	free(sess->buff);
+	if (param_list_destroy(sess->params) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "param_list_destroy() failed\n");
+		return -1;
+	}
+	/* Terminate connection */
+
+	if (iscsi_sock_close(sess->sock) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_sock_close() failed\n");
+	}
+	/* Make session available */
+
+	ISCSI_LOCK(&g_session_q_mutex, return -1);
+	(void)memset(sess, 0x0, sizeof(*sess));
+	if (iscsi_queue_insert(&g_session_q, sess) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_queue_insert() failed\n");
+		return -1;
+	}
+	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "session %d: ended\n", sess->id);
+
 done:
 	return 0;
 }
