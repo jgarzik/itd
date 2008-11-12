@@ -80,9 +80,9 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	/* Initilized parameter */
 
 	param->type = type;	/* type */
-	(void)strlcpy(param->key, key, sizeof(param->key));	/* key */
-	(void)strlcpy(param->dflt, dflt, sizeof(param->dflt));	/* default value */
-	(void)strlcpy(param->valid, valid, sizeof(param->valid));	/* list of valid values */
+	strlcpy(param->key, key, sizeof(param->key));	/* key */
+	strlcpy(param->dflt, dflt, sizeof(param->dflt));	/* default value */
+	strlcpy(param->valid, valid, sizeof(param->valid));	/* list of valid values */
 	param->tx_offer = 0;	/* sent offer */
 	param->rx_offer = 0;	/* received offer */
 	param->tx_answer = 0;	/* sent answer */
@@ -98,8 +98,7 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 		return -1;
 	}
 	param->value_l->next = NULL;
-	(void)strlcpy(param->value_l->value, dflt,
-		      sizeof(param->value_l->value));
+	strlcpy(param->value_l->value, dflt, sizeof(param->value_l->value));
 
 	/* Arg check */
 
@@ -417,8 +416,8 @@ static int find_credentials(iscsi_cred_t * cred, char *user, const char *auth)
 	unsigned cc;
 	ent_t e;
 
-	(void)memset(&conf, 0x0, sizeof(conf));
-	(void)memset(&e, 0x0, sizeof(e));
+	memset(&conf, 0x0, sizeof(conf));
+	memset(&e, 0x0, sizeof(e));
 #endif
 
 #if 0
@@ -446,12 +445,12 @@ static int find_credentials(iscsi_cred_t * cred, char *user, const char *auth)
 	conffile_close(&conf);
 #endif
 
-	(void)fprintf(stderr,
-		      "No matching user configuration entry for `%s' was found\n",
-		      user);
+	fprintf(stderr,
+		"No matching user configuration entry for `%s' was found\n",
+		user);
 #if 0
-	(void)fprintf(stderr, "Please add an entry for `%s' to `%s'\n", user,
-		      _PATH_ISCSI_PASSWD);
+	fprintf(stderr, "Please add an entry for `%s' to `%s'\n", user,
+		_PATH_ISCSI_PASSWD);
 #endif
 	return 0;
 }
@@ -525,8 +524,8 @@ param_parse_security(iscsi_parameter_t * head,
 				PPS_ERROR;
 			param->tx_offer = 1;	/* sending an offer */
 			param->rx_offer = 0;	/* reset */
-			(void)strlcpy(param->offer_tx, param->valid,
-				      sizeof(param->offer_tx));
+			strlcpy(param->offer_tx, param->valid,
+				sizeof(param->offer_tx));
 			PARAM_TEXT_ADD(head, param->key, param->valid, text_out,
 				       text_len_out, textsize, 0, PPS_ERROR);
 			ret++;
@@ -543,10 +542,10 @@ param_parse_security(iscsi_parameter_t * head,
 			param->tx_offer = 1;	/* sending an offer */
 			param->rx_offer = 0;	/* reset */
 			GenRandomData(&idData, 1);
-			(void)snprintf(chapstring, ISCSI_CHAP_STRING_LENGTH,
-				       "%d", idData);
-			(void)strlcpy(param->offer_tx, chapstring,
-				      sizeof(param->offer_tx));
+			snprintf(chapstring, ISCSI_CHAP_STRING_LENGTH,
+				 "%d", idData);
+			strlcpy(param->offer_tx, chapstring,
+				sizeof(param->offer_tx));
 			PARAM_TEXT_ADD(head, param->key, param->offer_tx,
 				       text_out, text_len_out, textsize, 0,
 				       PPS_ERROR);
@@ -559,8 +558,8 @@ param_parse_security(iscsi_parameter_t * head,
 			GenRandomData(chapdata, ISCSI_CHAP_DATA_LENGTH);
 			HexDataToText(chapdata, ISCSI_CHAP_DATA_LENGTH,
 				      chapstring, ISCSI_CHAP_STRING_LENGTH);
-			(void)strlcpy(param->offer_tx, chapstring,
-				      sizeof(param->offer_tx));
+			strlcpy(param->offer_tx, chapstring,
+				sizeof(param->offer_tx));
 			PARAM_TEXT_ADD(head, param->key, param->offer_tx,
 				       text_out, text_len_out, textsize, 0,
 				       PPS_ERROR);
@@ -596,8 +595,8 @@ param_parse_security(iscsi_parameter_t * head,
 		}
 
 		if (cred->user) {
-			(void)strlcpy(param->offer_tx, cred->user,
-				      sizeof(param->offer_tx));
+			strlcpy(param->offer_tx, cred->user,
+				sizeof(param->offer_tx));
 		} else {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "no valid user credentials\n");
@@ -642,10 +641,10 @@ param_parse_security(iscsi_parameter_t * head,
 			param->tx_offer = 1;	/* sending an offer */
 			param->rx_offer = 0;	/* reset */
 			GenRandomData(&idData, 1);
-			(void)snprintf(chapstring, ISCSI_CHAP_STRING_LENGTH,
-				       "%d", idData);
-			(void)strlcpy(param->offer_tx, chapstring,
-				      sizeof(param->offer_tx));
+			snprintf(chapstring, ISCSI_CHAP_STRING_LENGTH,
+				 "%d", idData);
+			strlcpy(param->offer_tx, chapstring,
+				sizeof(param->offer_tx));
 			PARAM_TEXT_ADD(head, param->key, param->offer_tx,
 				       text_out, text_len_out, textsize, 0,
 				       PPS_ERROR);
@@ -658,8 +657,8 @@ param_parse_security(iscsi_parameter_t * head,
 			GenRandomData(chapdata, ISCSI_CHAP_DATA_LENGTH);
 			HexDataToText(chapdata, ISCSI_CHAP_DATA_LENGTH,
 				      chapstring, ISCSI_CHAP_STRING_LENGTH);
-			(void)strlcpy(param->offer_tx, chapstring,
-				      sizeof(param->offer_tx));
+			strlcpy(param->offer_tx, chapstring,
+				sizeof(param->offer_tx));
 			PARAM_TEXT_ADD(head, param->key, param->offer_tx,
 				       text_out, text_len_out, textsize, 0,
 				       PPS_ERROR);
@@ -669,9 +668,8 @@ param_parse_security(iscsi_parameter_t * head,
 	} else if (strcmp(param_in->key, "CHAP_N") == 0) {
 		char *user;
 
-		user =
-		    (param_in->rx_offer) ? param_in->
-		    offer_rx : param_in->answer_rx;
+		user = (param_in->rx_offer) ? param_in->offer_rx :
+		    param_in->answer_rx;
 		if (!find_credentials(cred, user, "chap")) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "Unknown user `%s'\n", user);
@@ -899,8 +897,8 @@ param_text_parse(iscsi_parameter_t * head,
 				param->rx_answer = 0;	/* reset */
 				param->tx_offer = 0;	/* reset */
 				param->rx_offer = 0;	/* reset */
-				(void)strlcpy(param->answer_tx, value,
-					      sizeof(param->answer_tx));
+				strlcpy(param->answer_tx, value,
+					sizeof(param->answer_tx));
 				iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
 					    __LINE__,
 					    "sending answer \"%s\"=\"%s\" for offer \"%s\"\n",
@@ -911,8 +909,8 @@ param_text_parse(iscsi_parameter_t * head,
 				param->tx_offer = 1;	/* sending an offer */
 				param->tx_answer = 0;
 				param->rx_answer = 0;
-				(void)strlcpy(param->offer_tx, value,
-					      sizeof(param->offer_tx));
+				strlcpy(param->offer_tx, value,
+					sizeof(param->offer_tx));
 				iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
 					    __LINE__,
 					    "sending offer \"%s\"=\"%s\"\n",
@@ -931,8 +929,8 @@ param_text_parse(iscsi_parameter_t * head,
 				param->tx_answer = 0;
 				param->rx_offer = 0;
 				param->tx_offer = 0;	/* reset */
-				(void)strlcpy(param->answer_rx, value,
-					      sizeof(param->answer_rx));
+				strlcpy(param->answer_rx, value,
+					sizeof(param->answer_rx));
 				iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
 					    __LINE__,
 					    "received answer \"%s\"=\"%s\" for offer \"%s\"\n",
@@ -963,8 +961,8 @@ param_text_parse(iscsi_parameter_t * head,
 				param->rx_offer = 1;	/* received an offer */
 				param->rx_answer = 0;
 				param->tx_answer = 0;
-				(void)strlcpy(param->offer_rx, value,
-					      sizeof(param->offer_rx));
+				strlcpy(param->offer_rx, value,
+					sizeof(param->offer_rx));
 				iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
 					    __LINE__,
 					    "received offer \"%s\"=\"%s\"\n",
@@ -981,13 +979,11 @@ param_text_parse(iscsi_parameter_t * head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						(void)
-						    strlcpy
-						    (auth_result->value_l->
-						     value, "Fail",
-						     sizeof
-						     (auth_result->value_l->
-						      value));
+						strlcpy(auth_result->value_l->
+							value, "Fail",
+							sizeof
+							(auth_result->value_l->
+							 value));
 					}
 					PTP_CLEANUP;
 					return (ISCSI_PARAM_STATUS_AUTH_FAILED);
@@ -996,13 +992,11 @@ param_text_parse(iscsi_parameter_t * head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						(void)
-						    strlcpy
-						    (auth_result->value_l->
-						     value, "Yes",
-						     sizeof
-						     (auth_result->value_l->
-						      value));
+						strlcpy(auth_result->value_l->
+							value, "Yes",
+							sizeof
+							(auth_result->value_l->
+							 value));
 					}
 				}
 				/*
@@ -1033,9 +1027,9 @@ answer:
 				    param->key);
 			if (param->value_l) {
 				if (param->value_l->value) {
-					(void)strlcpy(param->answer_tx,
-						      param->value_l->value,
-						      sizeof(param->answer_tx));
+					strlcpy(param->answer_tx,
+						param->value_l->value,
+						sizeof(param->answer_tx));
 				} else {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "param \"%s\" has NULL value_l->value\n",
@@ -1066,17 +1060,17 @@ binary_or:
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "\"%s\" is not a valid binary value\n",
 						  value);
-				(void)strlcpy(param->answer_tx, "Reject",
-					      sizeof(param->answer_tx));
+				strlcpy(param->answer_tx, "Reject",
+					sizeof(param->answer_tx));
 				goto add_answer;
 			}
 			if (strchr(param->valid, ',') != NULL) {
-				(void)strlcpy(param->answer_tx, value, sizeof(param->answer_tx));	/* we accept both yes
-													 * and no, so answer w/
-													 * their offer */
+				strlcpy(param->answer_tx, value, sizeof(param->answer_tx));	/* we accept both yes
+												 * and no, so answer w/
+												 * their offer */
 			} else {
-				(void)strlcpy(param->answer_tx, param->valid, sizeof(param->answer_tx));	/* answer with the only
-														 * value we support */
+				strlcpy(param->answer_tx, param->valid, sizeof(param->answer_tx));	/* answer with the only
+													 * value we support */
 			}
 			break;
 
@@ -1104,15 +1098,15 @@ binary_or:
 							(unsigned)(p2 - p1));
 						offer[(int)(p2 - p1)] = 0x0;
 					} else {
-						(void)strlcpy(offer, p1,
-							      ISCSI_PARAM_MAX_LEN);
+						strlcpy(offer, p1,
+							ISCSI_PARAM_MAX_LEN);
 					}
 
 					if (strcmp(param->dflt, offer) == 0) {
-						(void)strlcpy(param->answer_tx,
-							      offer,
-							      sizeof
-							      (param->answer_tx));
+						strlcpy(param->answer_tx,
+							offer,
+							sizeof
+							(param->answer_tx));
 						goto add_answer;
 					}
 				}
@@ -1124,8 +1118,7 @@ binary_or:
 					strncpy(offer, p1, (unsigned)(p2 - p1));
 					offer[p2 - p1] = 0x0;
 				} else {
-					(void)strlcpy(offer, p1,
-						      ISCSI_PARAM_MAX_LEN);
+					strlcpy(offer, p1, ISCSI_PARAM_MAX_LEN);
 				}
 				if (strlen(param->valid)) {
 					for (p3 = p4 = param->valid; p4;
@@ -1138,12 +1131,11 @@ binary_or:
 							valid[(int)(p4 - p3)] =
 							    0x0;
 						} else {
-							(void)strlcpy(valid, p3,
-								      ISCSI_PARAM_MAX_LEN);
+							strlcpy(valid, p3,
+								ISCSI_PARAM_MAX_LEN);
 						}
 						if (strcmp(valid, offer) == 0) {
-							(void)
-							    strlcpy
+							strlcpy
 							    (param->answer_tx,
 							     offer,
 							     sizeof
@@ -1155,8 +1147,8 @@ binary_or:
 					iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
 						    __LINE__,
 						    "Valid list empty. Answering with first in offer list\n");
-					(void)strlcpy(param->answer_tx, offer,
-						      sizeof(param->answer_tx));
+					strlcpy(param->answer_tx, offer,
+						sizeof(param->answer_tx));
 					goto add_answer;
 				}
 				iscsi_trace(TRACE_ISCSI_PARAM, __FILE__,
@@ -1167,8 +1159,8 @@ binary_or:
 			iscsi_trace(TRACE_ISCSI_PARAM, __FILE__, __LINE__,
 				    "No Valid offers: \"%s\" is added as value for key \"%s\")\n",
 				    "Reject", param->key);
-			(void)strlcpy(param->answer_tx, "Reject",
-				      sizeof(param->answer_tx));
+			strlcpy(param->answer_tx, "Reject",
+				sizeof(param->answer_tx));
 			break;
 
 		case ISCSI_PARAM_TYPE_NUMERICAL_Z:
@@ -1202,9 +1194,8 @@ numerical:
 								 * the two */
 				}
 			}
-			(void)snprintf(param->answer_tx,
-				       sizeof(param->answer_tx), "%d",
-				       answer_i);
+			snprintf(param->answer_tx,
+				 sizeof(param->answer_tx), "%d", answer_i);
 			goto add_answer;
 
 		default:
@@ -1227,21 +1218,21 @@ negotiate:
 		case ISCSI_PARAM_TYPE_DECLARATIVE:
 declarative_negotiate:
 			if (param->tx_answer) {
-				(void)strlcpy(param->negotiated,
-					      param->answer_tx,
-					      sizeof(param->negotiated));
+				strlcpy(param->negotiated,
+					param->answer_tx,
+					sizeof(param->negotiated));
 			} else if (param->tx_offer) {
-				(void)strlcpy(param->negotiated,
-					      param->offer_tx,
-					      sizeof(param->negotiated));
+				strlcpy(param->negotiated,
+					param->offer_tx,
+					sizeof(param->negotiated));
 			} else if (param->rx_answer) {
-				(void)strlcpy(param->negotiated,
-					      param->answer_rx,
-					      sizeof(param->negotiated));
+				strlcpy(param->negotiated,
+					param->answer_rx,
+					sizeof(param->negotiated));
 			} else if (param->rx_offer) {
-				(void)strlcpy(param->negotiated,
-					      param->offer_rx,
-					      sizeof(param->negotiated));
+				strlcpy(param->negotiated,
+					param->offer_rx,
+					sizeof(param->negotiated));
 			} else {
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "Invalid negotiation!?!?\n");
@@ -1252,15 +1243,15 @@ declarative_negotiate:
 		case ISCSI_PARAM_TYPE_BINARY_OR:
 binary_or_negotiate:
 			if (outgoing) {
-				(void)strlcpy(val1, param->offer_rx,
-					      ISCSI_PARAM_MAX_LEN);
-				(void)strlcpy(val2, param->answer_tx,
-					      ISCSI_PARAM_MAX_LEN);
+				strlcpy(val1, param->offer_rx,
+					ISCSI_PARAM_MAX_LEN);
+				strlcpy(val2, param->answer_tx,
+					ISCSI_PARAM_MAX_LEN);
 			} else {
-				(void)strlcpy(val1, param->answer_rx,
-					      ISCSI_PARAM_MAX_LEN);
-				(void)strlcpy(val2, param->offer_tx,
-					      ISCSI_PARAM_MAX_LEN);
+				strlcpy(val1, param->answer_rx,
+					ISCSI_PARAM_MAX_LEN);
+				strlcpy(val2, param->offer_tx,
+					ISCSI_PARAM_MAX_LEN);
 				/* Make sure the answer is valid */
 				if (strcmp(val1, "Yes") != 0 &&
 				    strcmp(val1, "No") != 0 &&
@@ -1279,26 +1270,22 @@ binary_or_negotiate:
 				    || strcmp(val2, "yes") == 0
 				    || strcmp(val1, "Yes") == 0
 				    || strcmp(val2, "Yes") == 0) {
-					(void)strlcpy(param->negotiated, "Yes",
-						      sizeof
-						      (param->negotiated));
+					strlcpy(param->negotiated, "Yes",
+						sizeof(param->negotiated));
 				} else {
-					(void)strlcpy(param->negotiated, "No",
-						      sizeof
-						      (param->negotiated));
+					strlcpy(param->negotiated, "No",
+						sizeof(param->negotiated));
 				}
 			} else {
 				if ((strcmp(val1, "yes") == 0
 				     && strcmp(val2, "yes") == 0)
 				    || (strcmp(val1, "Yes") == 0
 					&& strcmp(val2, "Yes") == 0)) {
-					(void)strlcpy(param->negotiated, "Yes",
-						      sizeof
-						      (param->negotiated));
+					strlcpy(param->negotiated, "Yes",
+						sizeof(param->negotiated));
 				} else {
-					(void)strlcpy(param->negotiated, "No",
-						      sizeof
-						      (param->negotiated));
+					strlcpy(param->negotiated, "No",
+						sizeof(param->negotiated));
 				}
 			}
 			break;
@@ -1307,15 +1294,15 @@ binary_or_negotiate:
 		case ISCSI_PARAM_TYPE_NUMERICAL:
 numerical_negotiate:
 			if (outgoing) {
-				(void)strlcpy(val1, param->offer_rx,
-					      ISCSI_PARAM_MAX_LEN);
-				(void)strlcpy(val2, param->answer_tx,
-					      ISCSI_PARAM_MAX_LEN);
+				strlcpy(val1, param->offer_rx,
+					ISCSI_PARAM_MAX_LEN);
+				strlcpy(val2, param->answer_tx,
+					ISCSI_PARAM_MAX_LEN);
 			} else {
-				(void)strlcpy(val1, param->answer_rx,
-					      ISCSI_PARAM_MAX_LEN);
-				(void)strlcpy(val2, param->offer_tx,
-					      ISCSI_PARAM_MAX_LEN);
+				strlcpy(val1, param->answer_rx,
+					ISCSI_PARAM_MAX_LEN);
+				strlcpy(val2, param->offer_tx,
+					ISCSI_PARAM_MAX_LEN);
 			}
 			val1_i = iscsi_atoi(val1);
 			val2_i = iscsi_atoi(val2);
@@ -1336,9 +1323,8 @@ numerical_negotiate:
 					negotiated_i = val1_i;
 				}
 			}
-			(void)snprintf(param->negotiated,
-				       sizeof(param->negotiated), "%d",
-				       negotiated_i);
+			snprintf(param->negotiated,
+				 sizeof(param->negotiated), "%d", negotiated_i);
 			break;
 		case ISCSI_PARAM_TYPE_LIST:
 			if (outgoing) {
@@ -1347,8 +1333,8 @@ numerical_negotiate:
 														 * an offer */
 					PTP_ERROR;
 				} else if (param->tx_answer) {
-					(void)strlcpy(val1, param->answer_tx, ISCSI_PARAM_MAX_LEN);	/* we're sending an
-													 * answer */
+					strlcpy(val1, param->answer_tx, ISCSI_PARAM_MAX_LEN);	/* we're sending an
+												 * answer */
 				} else {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "unexpected error\n");
@@ -1360,7 +1346,7 @@ numerical_negotiate:
 														 * an offer */
 					PTP_ERROR;
 				} else if (param->rx_answer) {
-					(void)strlcpy(val1, param->answer_rx, ISCSI_PARAM_MAX_LEN);	/* we received an answer */
+					strlcpy(val1, param->answer_rx, ISCSI_PARAM_MAX_LEN);	/* we received an answer */
 				} else {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "unexpected error\n");
@@ -1386,8 +1372,8 @@ numerical_negotiate:
 							(unsigned)(p4 - p3));
 						valid[(int)(p4 - p3)] = 0x0;
 					} else {
-						(void)strlcpy(valid, p3,
-							      ISCSI_PARAM_MAX_LEN);
+						strlcpy(valid, p3,
+							ISCSI_PARAM_MAX_LEN);
 					}
 					if (strcmp(valid, val1) == 0) {
 						goto value_ok;
@@ -1403,8 +1389,8 @@ numerical_negotiate:
 					  val1, param->valid);
 			PTP_ERROR;
 value_ok:
-			(void)strlcpy(param->negotiated, val1,
-				      sizeof(param->negotiated));
+			strlcpy(param->negotiated, val1,
+				sizeof(param->negotiated));
 			break;
 		}
 
@@ -1493,8 +1479,8 @@ value_ok:
 			item_ptr = param->value_l;
 			item_ptr->next = NULL;
 		}
-		(void)strlcpy(item_ptr->value, param->negotiated,
-			      sizeof(item_ptr->value));
+		strlcpy(item_ptr->value, param->negotiated,
+			sizeof(item_ptr->value));
 next:
 		continue;
 	}
