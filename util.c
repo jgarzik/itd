@@ -92,8 +92,18 @@
 
 #include <unistd.h>
 
-#include "compat.h"
 #include "iscsiutil.h"
+
+#ifndef __UNCONST
+#define __UNCONST(a)    ((void *)(unsigned long)(const void *)(a))
+#endif
+
+#ifndef _DIAGASSERT
+#  ifndef __static_cast
+#  define __static_cast(x,y) (x)y
+#  endif
+#define _DIAGASSERT(e) (__static_cast(void,0))
+#endif
 
 /* debugging levels */
 void set_debug(const char *level)

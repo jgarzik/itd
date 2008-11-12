@@ -33,8 +33,6 @@
 #ifndef _PARAMETERS_H_
 #define _PARAMETERS_H_
 
-typedef struct MD5Context MD5Context_t;
-
 #define ISCSI_PARAM_MAX_LEN 256
 #define ISCSI_PARAM_KEY_LEN 64
 

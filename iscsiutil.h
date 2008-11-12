@@ -70,6 +70,10 @@
 #include <syslog.h>
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 /*
  *
  */
@@ -126,11 +130,7 @@
 /*
  * Set debugging level here. Turn on debugging in Makefile.
   */
-#ifndef EXTERN
-#define EXTERN  extern
-#endif
-
-EXTERN uint32_t iscsi_debug_level;
+extern uint32_t iscsi_debug_level;
 
 /*
  * Debugging Functions
@@ -389,10 +389,10 @@ if ((V1)==(V2)) {                                                    \
  * Misc. Functions
  */
 
-uint32_t iscsi_atoi(char *);
-int HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
-int HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
-void GenRandomData(uint8_t *, uint32_t);
+extern uint32_t iscsi_atoi(char *);
+extern int HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
+extern int HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
+extern void GenRandomData(uint8_t *, uint32_t);
 
 /* this is the maximum number of iovecs which we can use in iscsi_sock_send_header_and_data */
 #ifndef ISCSI_MAX_IOVECS
@@ -406,5 +406,27 @@ enum {
 };
 
 int allow_netmask(const char *, const char *);
+
+#define NEWARRAY(type,ptr,size,where,action) do {			\
+	if ((ptr = (type *) calloc(sizeof(type), (unsigned)(size))) == NULL) { \
+		fprintf(stderr, "%s: can't allocate %lu bytes\n", \
+			where, (unsigned long)(size * sizeof(type)));	\
+		action;							\
+	}								\
+} while( /* CONSTCOND */ 0)
+
+#define DEFINE_ARRAY(name, type)					\
+typedef struct name {							\
+	uint32_t	c;						\
+	uint32_t	size;						\
+	type	       *v;						\
+} name
+
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *, const char *, size_t);
+#endif
+#ifndef HAVE_STRLCAT
+extern size_t strlcat(char *dst, const char *src, size_t siz);
+#endif
 
 #endif /* _ISCSIUTIL_H_ */

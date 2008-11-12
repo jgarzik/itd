@@ -36,7 +36,58 @@
 #include "iscsi.h"
 #include "iscsiutil.h"
 #include "parameters.h"
-#include "storage.h"
+
+/* a device can be made up of an extent or another device */
+typedef struct disc_de_t {
+	int32_t type;		/* device or extent */
+	uint64_t size;		/* size of underlying extent or device */
+	union {
+		struct disc_extent_t *xp;	/* pointer to extent */
+		struct disc_device_t *dp;	/* pointer to device */
+	} u;
+} disc_de_t;
+
+/* this struct describes an extent of storage */
+typedef struct disc_extent_t {
+	char *extent;		/* extent name */
+	char *dev;		/* device associated with it */
+	uint64_t sacred;	/* offset of extent from start of device */
+	uint64_t len;		/* size of extent */
+	int fd;			/* in-core file descriptor */
+	int used;		/* extent has been used in a device */
+} disc_extent_t;
+
+DEFINE_ARRAY(extv_t, disc_extent_t);
+
+/* this struct describes a device */
+typedef struct disc_device_t {
+	char *dev;		/* device name */
+	int raid;		/* RAID level */
+	uint64_t off;		/* current offset in device */
+	uint64_t len;		/* size of device */
+	uint32_t size;		/* size of device/extent array */
+	uint32_t c;		/* # of entries in device/extents */
+	disc_de_t *xv;		/* device/extent array */
+	int used;		/* device has been used in a device/target */
+} disc_device_t;
+
+DEFINE_ARRAY(devv_t, disc_device_t);
+
+enum {
+	TARGET_READONLY = 0x01
+};
+
+/* this struct describes an iscsi target's associated features */
+typedef struct disc_target_t {
+	char *target;		/* target name */
+	disc_de_t de;		/* pointer to its device */
+	uint16_t port;		/* port to listen on */
+	char *mask;		/* mask to export it to */
+	uint32_t flags;		/* any flags */
+	uint16_t tsih;		/* target session identifying handle */
+} disc_target_t;
+
+DEFINE_ARRAY(targv_t, disc_target_t);
 
 /* Default configuration */
 
@@ -118,5 +169,18 @@ int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
 
 int find_target_tsih(globals_t *, int);
 int find_target_iqn(target_session_t *);
+
+/* 
+ * Interface from target to device:
+ *
+ * device_init() initializes the device
+ * device_command() sends a SCSI command to one of the logical units in the device.
+ * device_shutdown() shuts down the device.
+ */
+
+int device_init(globals_t *, targv_t *, disc_target_t *);
+int device_command(target_session_t *, target_cmd_t *);
+int device_shutdown(target_session_t *);
+void device_set_var(const char *, char *);
 
 #endif /* _TARGET_H_ */

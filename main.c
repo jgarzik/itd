@@ -4,11 +4,8 @@
 #include <stdint.h>
 #include <netinet/in.h>
 
-#include "compat.h"
 #include "iscsi.h"
 #include "target.h"
-#include "device.h"
-#include "md5.h"
 #include "parameters.h"
 
 uint32_t iscsi_debug_level = 0;

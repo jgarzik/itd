@@ -80,11 +80,8 @@
 #include <inttypes.h>
 #endif
 
-#include "compat.h"
 #include "iscsi.h"
 #include "target.h"
-#include "device.h"
-#include "md5.h"
 #include "parameters.h"
 
 enum {

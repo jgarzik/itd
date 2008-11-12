@@ -30,7 +30,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "itd-config.h"
-#include "compat.h"
 
 #ifdef HAVE_CTYPE_H
 #include <ctype.h>
