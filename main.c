@@ -62,7 +62,10 @@ static void net_exit(void)
 	gnet_server_unref(tcp_srv);
 }
 
-static globals_t gbls;
+static globals_t gbls = {
+	.port = 3260,
+};
+
 static targv_t tv_all[4];
 
 static int master_iscsi_init(void)

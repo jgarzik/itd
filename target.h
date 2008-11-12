@@ -33,6 +33,7 @@
 #ifndef _TARGET_H_
 #define _TARGET_H_
 
+#include <gnet.h>
 #include "iscsi.h"
 #include "iscsiutil.h"
 #include "parameters.h"
@@ -161,7 +162,7 @@ typedef struct target_cmd_t {
 
 int target_init(globals_t *, targv_t *, char *);
 int target_shutdown(globals_t *);
-int target_listen(globals_t *);
+int target_accept(globals_t * gp, GConn * conn);
 int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
 			 struct iovec *, int);
 
