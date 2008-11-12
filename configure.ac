@@ -32,20 +32,28 @@ AC_PROG_RANLIB
 AC_PROG_GCC_TRADITIONAL
 
 dnl Checks for header files.
-dnl AC_HEADER_STDC
-dnl AC_CHECK_HEADERS(sys/ioctl.h unistd.h)
+AC_HEADER_STDC
+AC_CHECK_HEADERS(arpa/inet.h ctype.h errno.h fcntl.h inttypes.h)
+AC_CHECK_HEADERS(netdb.h netinet/in.h netinet/tcp.h pthread.h poll.h)
+AC_CHECK_HEADERS(pwd.h signal.h stdarg.h stdint.h stdlib.h strings.h)
+AC_CHECK_HEADERS(string.h syslog.h sys/bswap.h sys/byteorder.h)
+AC_CHECK_HEADERS(sys/mman.h sys/select.h sys/stat.h sys/time.h sys/uio.h)
+AC_CHECK_HEADERS(sys/vfs.h unistd.h utime.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 dnl AC_TYPE_SIZE_T
 dnl AC_TYPE_PID_T
+AC_CHECK_TYPES(socklen_t)
 
 dnl -----------------------------
 dnl Checks for required libraries
 dnl -----------------------------
+AC_CHECK_LIB(crypto, MD5_Init, CRYPTO_LIBS=-lcrypto)
 
 dnl -------------------------------------
 dnl Checks for optional library functions
 dnl -------------------------------------
+AC_CHECK_FUNCS(strlcpy strlcat)
 
 dnl -----------------
 dnl Configure options
@@ -57,6 +65,8 @@ dnl --------------------------
 
 AM_PATH_GLIB_2_0(2.0.0)
 AM_PATH_GNET_2_0(2.0.5)
+
+AC_SUBST(CRYPTO_LIBS)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
