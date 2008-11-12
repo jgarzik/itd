@@ -388,38 +388,6 @@ iscsi_sock_getsockopt(iscsi_socket_t * sock, int level, int optname,
 	return 1;
 }
 
-int iscsi_sock_create(iscsi_socket_t * sock)
-{
-	int rc;
-
-	if ((*sock = rc = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "socket() failed: rc %d errno %d\n", rc,
-				  errno);
-		return 0;
-	}
-	return 1;
-}
-
-int iscsi_sock_bind(iscsi_socket_t sock, int port)
-{
-	struct sockaddr_in laddr;
-	int rc;
-
-	(void)memset(&laddr, 0x0, sizeof(laddr));
-	laddr.sin_family = AF_INET;
-	laddr.sin_addr.s_addr = INADDR_ANY;
-	laddr.sin_port = htons(port);
-	if ((rc =
-	     bind(sock, (struct sockaddr *)(void *)&laddr,
-		  sizeof(laddr))) < 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "bind() failed: rc %d errno %d\n", rc, errno);
-		return 0;
-	}
-	return 1;
-}
-
 int iscsi_sock_listen(iscsi_socket_t sock)
 {
 	int rc;
@@ -535,7 +503,7 @@ iscsi_waitfor_connection(iscsi_socket_t * sockv, int sockc, const char *cf,
 			socks[i].events = POLLIN;
 			socks[i].revents = 0;
 		}
-		switch (poll(socks, (unsigned)sockc, INFTIM)) {
+		switch (poll(socks, (unsigned)sockc, -1)) {
 		case -1:
 			/* interrupted system call */
 			continue;

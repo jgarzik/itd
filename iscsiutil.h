@@ -142,41 +142,6 @@ void iscsi_trace_error(const char *, const int, const char *, ...);
 void iscsi_print_buffer(const char *, const size_t);
 
 /*
- * Byte Order
-  */
-
-#ifdef HAVE_ASM_BYTEORDER_H
-#include <asm/byteorder.h>
-#endif
-
-#ifdef HAVE_SYS_BYTEORDER_H
-#include <sys/byteorder.h>
-#endif
-
-#ifdef HAVE_BYTESWAP_H
-#include <byteswap.h>
-#endif
-
-#ifndef __BYTE_ORDER
-#define __BYTE_ORDER    _BYTE_ORDER
-#endif
-
-#ifndef __BIG_ENDIAN
-#define __BIG_ENDIAN    _BIG_ENDIAN
-#endif
-
-#ifndef __LITTLE_ENDIAN
-#define __LITTLE_ENDIAN _LITTLE_ENDIAN
-#endif
-
-#define ISCSI_NTOHLL(a)	ISCSI_BE64TOH(a)
-#define ISCSI_HTONLL(a)	ISCSI_HTOBE64(a)
-
-#ifndef HAVE_STRLCAT
-extern size_t strlcat(char *dst, const char *src, size_t siz);
-#endif
-
-/*
  * Comparison
  */
 
@@ -249,14 +214,12 @@ typedef int iscsi_socket_t;
 #define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_sock_create(iscsi_socket_t *);
 int iscsi_socks_establish(iscsi_socket_t *, int *, int *, int, int);
 int iscsi_waitfor_connection(iscsi_socket_t *, int, const char *cf,
 			     iscsi_socket_t *);
 const char *iscsi_address_family(int);
 int iscsi_sock_setsockopt(iscsi_socket_t *, int, int, void *, unsigned);
 int iscsi_sock_getsockopt(iscsi_socket_t *, int, int, void *, unsigned *);
-int iscsi_sock_bind(iscsi_socket_t, int);
 int iscsi_sock_listen(iscsi_socket_t);
 int iscsi_sock_connect(iscsi_socket_t, char *, int);
 int iscsi_sock_accept(iscsi_socket_t, iscsi_socket_t *);

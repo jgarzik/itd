@@ -36,7 +36,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(arpa/inet.h ctype.h errno.h fcntl.h inttypes.h)
 AC_CHECK_HEADERS(netdb.h netinet/in.h netinet/tcp.h pthread.h poll.h)
 AC_CHECK_HEADERS(pwd.h signal.h stdarg.h stdint.h stdlib.h strings.h)
-AC_CHECK_HEADERS(string.h syslog.h sys/bswap.h sys/byteorder.h)
+AC_CHECK_HEADERS(string.h syslog.h)
 AC_CHECK_HEADERS(sys/mman.h sys/select.h sys/stat.h sys/time.h sys/uio.h)
 AC_CHECK_HEADERS(sys/vfs.h unistd.h utime.h)
 
