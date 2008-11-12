@@ -1974,7 +1974,7 @@ int target_listen(globals_t * gp)
 	struct sockaddr_in remoteAddrStorage;
 	struct sockaddr_in localAddrStorage;
 	target_session_t *sess;
-	iscsi_socket_t newconn;
+	int newconn;
 	socklen_t remoteAddrLen;
 	socklen_t localAddrLen;
 	char remote[1024];

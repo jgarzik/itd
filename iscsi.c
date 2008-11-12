@@ -51,6 +51,8 @@
 #include <inttypes.h>
 #endif
 
+#include <glib.h>
+
 #include "iscsi.h"
 #include "iscsiutil.h"
 
@@ -86,7 +88,7 @@ int iscsi_task_cmd_encap(uint8_t * header, iscsi_task_cmd_t * cmd)
 		header[0] |= 0x40;	/* Immediate bit  */
 	}
 	header[1] = cmd->function & 0x80;	/* Function  */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->ref_tag);	/* Reference Tag */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->CmdSN);	/* CmdSN */
@@ -105,7 +107,7 @@ int iscsi_task_cmd_decap(uint8_t * header, iscsi_task_cmd_t * cmd)
 
 	cmd->immediate = ((header[0] & 0x40) == 0x40);	/* Immediate bit  */
 	cmd->function = header[1] & 0x80;	/* Function  */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->ref_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Reference Tag */
 	cmd->CmdSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* CmdSN */
@@ -262,7 +264,7 @@ int iscsi_nop_out_encap(uint8_t * header, iscsi_nop_out_args_t * cmd)
 	header[1] |= 0x80;	/* Byte 1 bit 0 and Reserved */
 	length = (cmd->length & 0x00ffffff);	/* Length  */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* Length  */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Target Transfer Tag  */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->CmdSN);	/* CmdSN */
@@ -279,7 +281,7 @@ int iscsi_nop_out_decap(uint8_t * header, iscsi_nop_out_args_t * cmd)
 
 	cmd->immediate = ((header[0] & 0x40) == 0x40);	/* Immediate bit  */
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Target Tranfer Tag */
 	cmd->CmdSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* CmdSN */
@@ -345,7 +347,7 @@ int iscsi_nop_in_encap(uint8_t * header, iscsi_nop_in_args_t * cmd)
 	header[1] |= 0x80;	/* Reserved */
 	length = (cmd->length & 0x00ffffff);	/* Length */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Target Transfer Tag        */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->StatSN);	/* StatSN */
@@ -362,7 +364,7 @@ int iscsi_nop_in_decap(uint8_t * header, iscsi_nop_in_args_t * cmd)
 			 NO_CLEANUP, 1);
 
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Target Transfer Tag */
 	cmd->StatSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* StatSN  */
@@ -440,7 +442,7 @@ int iscsi_text_cmd_encap(uint8_t * header, iscsi_text_cmd_args_t * cmd)
 	}
 	length = (cmd->length & 0x00ffffff);	/* Length */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Transfer Tag */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->CmdSN);	/* CmdSN */
@@ -459,7 +461,7 @@ int iscsi_text_cmd_decap(uint8_t * header, iscsi_text_cmd_args_t * cmd)
 	cmd->final = ((header[1] & 0x80) == 0x80);	/* Final bit */
 	cmd->cont = ((header[1] & 0x40) == 0x40);	/* Continue bit */
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Transfer Tag */
 	cmd->CmdSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* CmdSN */
@@ -542,7 +544,7 @@ int iscsi_text_rsp_encap(uint8_t * header, iscsi_text_rsp_args_t * rsp)
 	}
 	length = (rsp->length & 0x00ffffff);	/* Length */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(rsp->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(rsp->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(rsp->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(rsp->transfer_tag);	/* Transfer Tag */
 	*((uint32_t *) (void *)(header + 24)) = htonl(rsp->StatSN);	/* StatSN */
@@ -561,7 +563,7 @@ int iscsi_text_rsp_decap(uint8_t * header, iscsi_text_rsp_args_t * rsp)
 	rsp->final = ((header[1] & 0x80) == 0x80);	/* Final bit  */
 	rsp->cont = ((header[1] & 0x40) == 0x40);	/* Continue bit */
 	rsp->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	rsp->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	rsp->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	rsp->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	rsp->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Transfer Tag */
 	rsp->StatSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* StatSN */
@@ -659,7 +661,7 @@ int iscsi_login_cmd_encap(uint8_t * header, iscsi_login_cmd_args_t * cmd)
 	header[4] = cmd->AHSlength;	/* TotalAHSLength */
 	length = (cmd->length & 0x00ffffff);	/* Length  */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* Length  */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->isid);	/* ISID */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->isid);	/* ISID */
 	*((uint16_t *) (void *)(header + 14)) = htons(cmd->tsih);	/* TSIH */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Task Tag */
 	*((uint16_t *) (void *)(header + 20)) = htons(cmd->cid);	/* CID */
@@ -683,7 +685,7 @@ int iscsi_login_cmd_decap(uint8_t * header, iscsi_login_cmd_args_t * cmd)
 	cmd->version_min = header[3];	/* Version-Min  */
 	cmd->AHSlength = header[4];	/* TotalAHSLength */
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->isid = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* ISID */
+	cmd->isid = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* ISID */
 	cmd->tsih = ntohs(*((uint16_t *) (void *)(header + 14)));	/* TSIH */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Task Tag */
 	cmd->cid = ntohs(*((uint16_t *) (void *)(header + 20)));	/* CID */
@@ -800,7 +802,7 @@ int iscsi_login_rsp_encap(uint8_t * header, iscsi_login_rsp_args_t * rsp)
 	header[3] = rsp->version_active;	/* Version-active */
 	header[4] = rsp->AHSlength;	/* TotalAHSLength */
 	*((uint32_t *) (void *)(header + 4)) = htonl(rsp->length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(rsp->isid);	/* ISID */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(rsp->isid);	/* ISID */
 	*((uint16_t *) (void *)(header + 14)) = htons(rsp->tsih);	/* TSIH */
 	*((uint32_t *) (void *)(header + 16)) = htonl(rsp->tag);	/* Tag  */
 	*((uint32_t *) (void *)(header + 24)) = htonl(rsp->StatSN);	/* StatRn */
@@ -826,7 +828,7 @@ int iscsi_login_rsp_decap(uint8_t * header, iscsi_login_rsp_args_t * rsp)
 	rsp->version_active = header[3];	/* Version-active */
 	rsp->AHSlength = header[4];	/* TotalAHSLength */
 	rsp->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	rsp->isid = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* ISID */
+	rsp->isid = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* ISID */
 	rsp->tsih = ntohs(*((uint16_t *) (void *)(header + 14)));	/* TSIH */
 
 	rsp->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
@@ -1118,7 +1120,7 @@ int iscsi_scsi_cmd_encap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
 	header[1] |= cmd->attr & 0x07;	/* ATTR  */
 	*((uint32_t *) (void *)(header + 4)) = htonl(cmd->length);	/* DataSegmentLength */
 	header[4] = cmd->ahs_len;	/* TotalAHSLength  */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Task Tag  */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->trans_len);	/* Expected Transfer
 										 * Length */
@@ -1143,7 +1145,7 @@ int iscsi_scsi_cmd_decap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
 	cmd->ahs_len = header[4];
 	header[4] = 0x00;
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* DataSegmentLength */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Task Tag */
 	cmd->trans_len = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Expected Transfer
 										 * Length */
@@ -1352,7 +1354,7 @@ int iscsi_r2t_encap(uint8_t * header, iscsi_r2t_t * cmd)
 	header[1] |= 0x80;
 	length = (cmd->AHSlength & 0x00ffffff);	/* AHSLength */
 	*((uint32_t *) (void *)(header + 4)) = htonl(length);	/* AHSLength */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Transfer Tag */
 	*((uint32_t *) (void *)(header + 24)) = htonl(cmd->StatSN);	/* StatSN  */
@@ -1372,7 +1374,7 @@ int iscsi_r2t_decap(uint8_t * header, iscsi_r2t_t * cmd)
 			 1);
 
 	cmd->AHSlength = ntohl(*((uint32_t *) (void *)(header + 4)));	/* TotalAHSLength */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Transfer Tag */
 	cmd->StatSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* StatSN */
@@ -1446,7 +1448,7 @@ int iscsi_write_data_encap(uint8_t * header, iscsi_write_data_t * cmd)
 		header[1] |= 0x80;	/* Final */
 	}
 	*((uint32_t *) (void *)(header + 4)) = htonl(cmd->length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->tag);	/* Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Transfer Tag */
 	*((uint32_t *) (void *)(header + 28)) = htonl(cmd->ExpStatSN);	/* ExpStatSN */
@@ -1464,7 +1466,7 @@ int iscsi_write_data_decap(uint8_t * header, iscsi_write_data_t * cmd)
 
 	cmd->final = (header[1] & 0x80) ? 1 : 0;	/* Final */
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Transfer Tag */
 	cmd->ExpStatSN = ntohl(*((uint32_t *) (void *)(header + 28)));	/* ExpStatSN  */
@@ -1565,7 +1567,7 @@ int iscsi_read_data_encap(uint8_t * header, iscsi_read_data_t * cmd)
 		header[3] = cmd->status;	/* Status  */
 	}
 	*((uint32_t *) (void *)(header + 4)) = htonl(cmd->length);	/* Length */
-	*((uint64_t *) (void *)(header + 8)) = ISCSI_HTONLL6(cmd->lun);	/* LUN */
+	*((uint64_t *) (void *)(header + 8)) = GUINT64_TO_BE(cmd->lun);	/* LUN */
 	*((uint32_t *) (void *)(header + 16)) = htonl(cmd->task_tag);	/* Task Tag */
 	*((uint32_t *) (void *)(header + 20)) = htonl(cmd->transfer_tag);	/* Transfer Tag */
 	if (cmd->S_bit) {
@@ -1595,7 +1597,7 @@ int iscsi_read_data_decap(uint8_t * header, iscsi_read_data_t * cmd)
 	cmd->S_bit = (header[1] & 0x01) ? 1 : 0;	/* S Bit  */
 	cmd->status = header[3];	/* Status */
 	cmd->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	cmd->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN  */
+	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN  */
 	cmd->task_tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Task Tag */
 	cmd->transfer_tag = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Transfer Tag  */
 	cmd->StatSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* StatSN  */
@@ -1736,7 +1738,7 @@ int iscsi_amsg_decap(uint8_t * header, iscsi_async_msg_t * msg)
 
 	msg->AHSlength = header[4];	/* TotalAHSLength */
 	msg->length = ntohl(*((uint32_t *) (void *)(header + 4)));	/* Length */
-	msg->lun = ISCSI_NTOHLL6(*((uint64_t *) (void *)(header + 8)));	/* LUN  */
+	msg->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN  */
 	msg->StatSN = ntohl(*((uint32_t *) (void *)(header + 24)));	/* StatSN */
 	msg->ExpCmdSN = ntohl(*((uint32_t *) (void *)(header + 28)));	/* ExpCmdSN */
 	msg->MaxCmdSN = ntohl(*((uint32_t *) (void *)(header + 32)));	/* MaxCmdSN  */

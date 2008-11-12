@@ -75,26 +75,6 @@
 #include <string.h>
 
 /*
- *
- */
-
-#define ISCSI_HTONLL6(x) (uint64_t) \
-      ( ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x0000ff0000000000uLL) >> 40))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x000000ff00000000uLL) >> 24))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x00000000ff000000uLL) >> 8))      \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x0000000000ff0000uLL) << 8))      \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x000000000000ff00uLL) << 24))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x00000000000000ffuLL) << 40)))
-
-#define ISCSI_NTOHLL6(x) (uint64_t) \
-      ( ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x0000ff0000000000uLL) >> 40))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x000000ff00000000uLL) >> 24))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x00000000ff000000uLL) >> 8))      \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x0000000000ff0000uLL) << 8))      \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x000000000000ff00uLL) << 24))     \
-      | ((uint64_t)( ((uint64_t)(x) & (uint64_t)0x00000000000000ffuLL) << 40)))
-
-/*
  * Debugging Levels
  */
 
@@ -141,12 +121,6 @@ void iscsi_trace_warning(const char *, const int, const char *, ...);
 void iscsi_trace_error(const char *, const int, const char *, ...);
 void iscsi_print_buffer(const char *, const size_t);
 
-/*
- * Comparison
- */
-
-#define MIN_3(A,B,C) (((A)<(B))?(((A)<(C))?(A):(C)):(((B)<(C))?(B):(C)))
-
 /* Spin locks */
 
 typedef pthread_mutex_t iscsi_spin_t;
@@ -161,23 +135,6 @@ int iscsi_spin_destroy(iscsi_spin_t *);
 /*
  * End of ISCSI spin routines
  */
-
-/*
- * Tags
- */
-
-#define ISCSI_SET_TAG(tag) do {						\
-	iscsi_spin_lock(&g_tag_spin);					\
-	*tag = g_tag++;							\
-	iscsi_spin_unlock(&g_tag_spin);					\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_SET_TAG_IN_INTR(tag) do {					\
-	uint32_t flags;							\
-	iscsi_spin_lock_irqsave(&g_tag_spin, &flags);			\
-	*tag = g_tag++;							\
-	iscsi_spin_unlock_irqrestore(&g_tag_spin, &flags);		\
-} while (/* CONSTCOND */ 0)
 
 /*
  * Queuing
@@ -203,8 +160,6 @@ int iscsi_queue_full(iscsi_queue_t *);
  * Socket Abstraction
  */
 
-typedef int iscsi_socket_t;
-
 /* Turning off Nagle's Algorithm doesn't always seem to work, */
 /* so we combine two messages into one when the second's size */
 /* is less than or equal to ISCSI_SOCK_HACK_CROSSOVER. */
@@ -214,23 +169,20 @@ typedef int iscsi_socket_t;
 #define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_socks_establish(iscsi_socket_t *, int *, int *, int, int);
-int iscsi_waitfor_connection(iscsi_socket_t *, int, const char *cf,
-			     iscsi_socket_t *);
+int iscsi_socks_establish(int *, int *, int *, int, int);
+int iscsi_waitfor_connection(int *, int, const char *cf,
+			     int *);
 const char *iscsi_address_family(int);
-int iscsi_sock_setsockopt(iscsi_socket_t *, int, int, void *, unsigned);
-int iscsi_sock_getsockopt(iscsi_socket_t *, int, int, void *, unsigned *);
-int iscsi_sock_listen(iscsi_socket_t);
-int iscsi_sock_connect(iscsi_socket_t, char *, int);
-int iscsi_sock_accept(iscsi_socket_t, iscsi_socket_t *);
-int iscsi_sock_shutdown(iscsi_socket_t, int);
-int iscsi_sock_close(iscsi_socket_t);
-int iscsi_sock_msg(iscsi_socket_t, int, unsigned, void *, int);
-int iscsi_sock_send_header_and_data(iscsi_socket_t,
+int iscsi_sock_setsockopt(int *, int, int, void *, unsigned);
+int iscsi_sock_accept(int, int *);
+int iscsi_sock_shutdown(int, int);
+int iscsi_sock_close(int);
+int iscsi_sock_msg(int, int, unsigned, void *, int);
+int iscsi_sock_send_header_and_data(int,
 				    void *, unsigned,
 				    const void *, unsigned, int);
-int iscsi_sock_getsockname(iscsi_socket_t, struct sockaddr *, unsigned *);
-int iscsi_sock_getpeername(iscsi_socket_t, struct sockaddr *, unsigned *);
+int iscsi_sock_getsockname(int, struct sockaddr *, unsigned *);
+int iscsi_sock_getpeername(int, struct sockaddr *, unsigned *);
 int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 void cdb2lba(uint32_t *, uint16_t *, uint8_t *);
@@ -276,41 +228,6 @@ int iscsi_mutex_destroy(iscsi_mutex_t *);
 } while (/* CONSTCOND */ 0)
 
 /*
- * Condition Variable
- */
-
-typedef pthread_cond_t iscsi_cond_t;
-
-int iscsi_cond_init(iscsi_cond_t *);
-int iscsi_cond_wait(iscsi_cond_t *, iscsi_mutex_t *);
-int iscsi_cond_signal(iscsi_cond_t *);
-int iscsi_cond_destroy(iscsi_cond_t *);
-
-#define ISCSI_COND_INIT(C, ELSE) do {					\
-	if (iscsi_cond_init(C) != 0) {					\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_WAIT(C, M, ELSE)	do {					\
-	if (iscsi_cond_wait(C, M) != 0) {				\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_SIGNAL(C, ELSE) 	do {					\
-	if (iscsi_cond_signal(C) != 0) {				\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_COND_DESTROY(C, ELSE)	do {				\
-	if (iscsi_cond_destroy(C) != 0) {				\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-/*
  * Threading Routines
  */
 
@@ -335,9 +252,9 @@ int iscsi_thread_create(iscsi_thread_t *, void *(*proc) (void *), void *);
 typedef struct {
 	iscsi_thread_t thread;
 	iscsi_mutex_t work_mutex;
-	iscsi_cond_t work_cond;
+	pthread_cond_t work_cond;
 	iscsi_mutex_t exit_mutex;
-	iscsi_cond_t exit_cond;
+	pthread_cond_t exit_cond;
 	int id;
 	int pid;
 	volatile uint32_t state;

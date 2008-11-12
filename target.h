@@ -115,9 +115,9 @@ enum {
 typedef struct globals_t {
 	char targetname[MAX_TGT_NAME_SIZE];	/* name of target */
 	uint16_t port;		/* target port */
-	iscsi_socket_t sock;	/* socket on which it's listening */
+	int sock;	/* socket on which it's listening */
 	int sockc;		/* # of live sockets on which it's listening */
-	iscsi_socket_t sockv[MAXSOCK];	/* sockets on which it's listening */
+	int sockv[MAXSOCK];	/* sockets on which it's listening */
 	int famv[MAXSOCK];	/* address families */
 	int state;		/* current state of target */
 	int listener_pid;	/* PID on which it's listening */
@@ -134,7 +134,7 @@ typedef struct globals_t {
 typedef struct target_session_t {
 	int id;
 	int d;
-	iscsi_socket_t sock;
+	int sock;
 	uint16_t cid;
 	uint32_t StatSN;
 	uint32_t ExpCmdSN;

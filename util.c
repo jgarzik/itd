@@ -370,7 +370,7 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 }
 
 int
-iscsi_sock_setsockopt(iscsi_socket_t * sock, int level, int optname,
+iscsi_sock_setsockopt(int * sock, int level, int optname,
 		      void *optval, unsigned optlen)
 {
 	int rc;
@@ -384,40 +384,12 @@ iscsi_sock_setsockopt(iscsi_socket_t * sock, int level, int optname,
 	return 1;
 }
 
-int
-iscsi_sock_getsockopt(iscsi_socket_t * sock, int level, int optname,
-		      void *optval, unsigned *optlen)
-{
-	int rc;
-
-	if ((rc = getsockopt(*sock, level, optname, optval, optlen)) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "sock->ops->getsockopt() failed: rc %d errno %d\n",
-				  rc, errno);
-		return 0;
-	}
-	return 1;
-}
-
-int iscsi_sock_listen(iscsi_socket_t sock)
-{
-	int rc;
-
-	if ((rc = listen(sock, 32)) < 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "listen() failed: rc %d errno %d\n", rc,
-				  errno);
-		return 0;
-	}
-	return 1;
-}
-
 #ifndef MAXSOCK
 #define MAXSOCK	16
 #endif
 
 int
-iscsi_socks_establish(iscsi_socket_t * sockv, int *famv, int *sockc, int family,
+iscsi_socks_establish(int * sockv, int *famv, int *sockc, int family,
 		      int port)
 {
 	struct addrinfo hints;
@@ -501,8 +473,8 @@ const char *iscsi_address_family(int fam)
 /* wait for a connection to come in on a socket */
 /* ARGSUSED2 */
 int
-iscsi_waitfor_connection(iscsi_socket_t * sockv, int sockc, const char *cf,
-			 iscsi_socket_t * sock)
+iscsi_waitfor_connection(int * sockv, int sockc, const char *cf,
+			 int * sock)
 {
 #ifdef HAVE_POLL
 	struct pollfd socks[MAXSOCK];
@@ -568,7 +540,7 @@ iscsi_waitfor_connection(iscsi_socket_t * sockv, int sockc, const char *cf,
 #endif
 }
 
-int iscsi_sock_accept(iscsi_socket_t sock, iscsi_socket_t * newsock)
+int iscsi_sock_accept(int sock, int * newsock)
 {
 	struct sockaddr_in remoteAddr;
 	socklen_t remoteAddrLen;
@@ -588,7 +560,7 @@ int iscsi_sock_accept(iscsi_socket_t sock, iscsi_socket_t * newsock)
 }
 
 int
-iscsi_sock_getsockname(iscsi_socket_t sock, struct sockaddr *name,
+iscsi_sock_getsockname(int sock, struct sockaddr *name,
 		       unsigned *namelen)
 {
 	if (getsockname(sock, name, namelen) != 0) {
@@ -600,7 +572,7 @@ iscsi_sock_getsockname(iscsi_socket_t sock, struct sockaddr *name,
 }
 
 int
-iscsi_sock_getpeername(iscsi_socket_t sock, struct sockaddr *name,
+iscsi_sock_getpeername(int sock, struct sockaddr *name,
 		       unsigned *namelen)
 {
 	if (getpeername(sock, name, namelen) != 0) {
@@ -611,7 +583,7 @@ iscsi_sock_getpeername(iscsi_socket_t sock, struct sockaddr *name,
 	return 1;
 }
 
-int iscsi_sock_shutdown(iscsi_socket_t sock, int how)
+int iscsi_sock_shutdown(int sock, int how)
 {
 	int rc;
 
@@ -622,7 +594,7 @@ int iscsi_sock_shutdown(iscsi_socket_t sock, int how)
 	return 0;
 }
 
-int iscsi_sock_close(iscsi_socket_t sock)
+int iscsi_sock_close(int sock)
 {
 	int rc;
 
@@ -635,82 +607,6 @@ int iscsi_sock_close(iscsi_socket_t sock)
 	return 0;
 }
 
-int iscsi_sock_connect(iscsi_socket_t sock, char *hostname, int port)
-{
-	struct addrinfo hints;
-	struct addrinfo *res;
-	char portstr[32];
-	int rc = 0;
-	int i;
-
-	(void)memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	(void)snprintf(portstr, sizeof(portstr), "%d", port);
-
-	for (i = 0; i < ISCSI_SOCK_CONNECT_TIMEOUT; i++) {
-
-		/* Attempt connection */
-#ifdef AI_NUMERICSERV
-		hints.ai_flags = AI_NUMERICSERV;
-#endif
-		if ((rc = getaddrinfo(hostname, portstr, &hints, &res)) != 0) {
-			hints.ai_flags = 0;
-			if ((rc =
-			     getaddrinfo(hostname, "iscsi-target", &hints,
-					 &res)) != 0
-			    || (rc =
-				getaddrinfo(hostname, "iscsi", &hints,
-					    &res)) != 0) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "getaddrinfo: %s",
-						  gai_strerror(rc));
-				return 0;
-			}
-		}
-#if ISCSI_SOCK_CONNECT_NONBLOCK == 1
-		if (fcntl(sock, F_SETFL, O_NONBLOCK) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "fcntl O_NONBLOCK failed");
-			freeaddrinfo(res);
-			return -1;
-		}
-#endif
-		rc = connect(sock, res->ai_addr, res->ai_addrlen);
-#if ISCSI_SOCK_CONNECT_NONBLOCK == 1
-		if (fcntl(sock, F_SETFL, O_SYNC) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "fcntl O_SYNC failed\n");
-			freeaddrinfo(res);
-			return -1;
-		}
-#endif
-
-		/* Check errno */
-
-		if (errno == EISCONN) {
-			rc = 0;
-			break;
-		}
-		if (errno == EAGAIN || errno == EINPROGRESS
-		    || errno == EALREADY) {
-			if (i != ISCSI_SOCK_CONNECT_TIMEOUT - 1) {
-				printf("***SLEEPING***\n");
-				sleep(1);
-			}
-		} else {
-			break;
-		}
-	}
-	freeaddrinfo(res);
-	if (rc < 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "connect() to %s:%d failed (errno %d)\n",
-				  hostname, port, errno);
-	}
-	return rc;
-}
-
 /*
  * NOTE: iscsi_sock_msg() alters *sg when socket sends and recvs return having only
  * transfered a portion of the iovec.  When this happens, the iovec is modified
@@ -718,7 +614,7 @@ int iscsi_sock_connect(iscsi_socket_t sock, char *hostname, int port)
  */
 
 int
-iscsi_sock_msg(iscsi_socket_t sock, int xmit, unsigned len, void *data,
+iscsi_sock_msg(int sock, int xmit, unsigned len, void *data,
 	       int iovc)
 {
 	int i, n = 0;
@@ -868,7 +764,7 @@ iscsi_sock_msg(iscsi_socket_t sock, int xmit, unsigned len, void *data,
  */
 
 int
-iscsi_sock_send_header_and_data(iscsi_socket_t sock,
+iscsi_sock_send_header_and_data(int sock,
 				void *header, unsigned header_len,
 				const void *data, unsigned data_len, int iovc)
 {
@@ -985,30 +881,6 @@ int iscsi_mutex_unlock(iscsi_mutex_t * m)
 int iscsi_mutex_destroy(iscsi_mutex_t * m)
 {
 	return pthread_mutex_destroy(m);
-}
-
-/*
- * Condition Functions
- */
-
-int iscsi_cond_init(iscsi_cond_t * c)
-{
-	return pthread_cond_init(c, NULL);
-}
-
-int iscsi_cond_wait(iscsi_cond_t * c, iscsi_mutex_t * m)
-{
-	return pthread_cond_wait(c, m);
-}
-
-int iscsi_cond_signal(iscsi_cond_t * c)
-{
-	return pthread_cond_signal(c);
-}
-
-int iscsi_cond_destroy(iscsi_cond_t * c)
-{
-	return pthread_cond_destroy(c);
 }
 
 /*
@@ -1167,7 +1039,7 @@ void GenRandomData(uint8_t * data, uint32_t length)
 void cdb2lba(uint32_t * lba, uint16_t * len, uint8_t * cdb)
 {
 	/* Some platforms (like strongarm) aligns on */
-	/* word boundaries.  So HTONL and NTOHL won't */
+	/* word boundaries.  So htonl and ntohl won't */
 	/* work here. */
 	int indian = 1;
 
@@ -1192,7 +1064,7 @@ void cdb2lba(uint32_t * lba, uint16_t * len, uint8_t * cdb)
 void lba2cdb(uint8_t * cdb, uint32_t * lba, uint16_t * len)
 {
 	/* Some platforms (like strongarm) aligns on */
-	/* word boundaries.  So HTONL and NTOHL won't */
+	/* word boundaries.  So htonl and ntohl won't */
 	/* work here. */
 	int indian = 1;
 
