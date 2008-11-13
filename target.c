@@ -96,8 +96,7 @@ enum {
  ***********/
 
 static target_session_t *g_session;
-static iscsi_queue_t g_session_q;
-static iscsi_mutex_t g_session_q_mutex;
+static GList *session_list;
 
 /*********************
  * Private Functions *
@@ -1606,20 +1605,8 @@ int target_init(globals_t * gp, targv_t * tv, char *TargetName)
 		return -1;
 	}
 	gp->state = TARGET_INITIALIZING;
-	if (iscsi_queue_init(&g_session_q, gp->max_sessions) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_queue_init() failed\n");
-		return -1;
-	}
 	gp->tv = tv;
-	for (i = 0; i < gp->max_sessions; i++) {
-		g_session[i].id = i;
-		if (iscsi_queue_insert(&g_session_q, &g_session[i]) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_queue_insert() failed\n");
-			return -1;
-		}
-	}
+
 	for (i = 0; i < tv->c; i++) {
 		if ((g_session[i].d = device_init(gp, tv, &tv->v[i])) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -1627,7 +1614,7 @@ int target_init(globals_t * gp, targv_t * tv, char *TargetName)
 			return -1;
 		}
 	}
-	ISCSI_MUTEX_INIT(&g_session_q_mutex, return -1);
+
 	gp->state = TARGET_INITIALIZED;
 
 	printf("TARGET: TargetName is %s\n", gp->targetname);
@@ -1635,68 +1622,6 @@ int target_init(globals_t * gp, targv_t * tv, char *TargetName)
 		printf("\tsocket %d listening on port %hd\n", gp->sockv[i],
 		       gp->port);
 	}
-
-	return 0;
-}
-
-int target_shutdown(globals_t * gp)
-{
-	target_session_t *sess;
-	int i;
-
-	if ((gp->state == TARGET_SHUTTING_DOWN)
-	    || (gp->state == TARGET_SHUT_DOWN)) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "duplicate target shutdown attempted\n");
-		return -1;
-	}
-	gp->state = TARGET_SHUTTING_DOWN;
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "shutting down target\n");
-	for (i = 0; i < gp->max_sessions; i++) {
-		sess = &g_session[i];
-
-		/* Need to replace with a call to session_destroy() */
-
-		if (sess->IsLoggedIn) {
-			printf("shutting down socket on sess %d\n", i);
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "shutting down socket on sess %d\n", i);
-			if (iscsi_sock_shutdown(sess->sock, 2) != 0) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "iscsi_sock_shutdown() failed\n");
-				return -1;
-			}
-		}
-		if (device_shutdown(sess) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "device_shutdown() failed\n");
-			return -1;
-		}
-	}
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "shutting down accept socket\n");
-	if (iscsi_sock_shutdown(gp->sock, 2) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_shutdown() failed\n");
-		return -1;
-	}
-#if 0
-	if (gp->listener_pid != getpid()) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "waiting for listener thread\n");
-		while (gp->listener_listening) {
-			/* do nothing */
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "listener thread has exited\n");
-	}
-#endif
-
-	ISCSI_MUTEX_DESTROY(&g_session_q_mutex, return -1);
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "target shutdown complete\n");
-	gp->state = TARGET_SHUT_DOWN;
 
 	return 0;
 }
@@ -1714,18 +1639,55 @@ int target_sess_cleanup(target_session_t *sess)
 	/* Terminate connection */
 	gnet_conn_unref(sess->conn);
 
-	/* Make session available */
-
-	ISCSI_LOCK(&g_session_q_mutex, return -1);
-	(void)memset(sess, 0x0, sizeof(*sess));
-	if (iscsi_queue_insert(&g_session_q, sess) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_queue_insert() failed\n");
-		return -1;
-	}
-	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "session %d: ended\n", sess->id);
+
+	/* Destroy session */
+	free(sess);
+
+	return 0;
+}
+
+int target_shutdown(globals_t * gp)
+{
+	target_session_t *sess;
+	GList *tmp;
+
+	if ((gp->state == TARGET_SHUTTING_DOWN)
+	    || (gp->state == TARGET_SHUT_DOWN)) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "duplicate target shutdown attempted\n");
+		return -1;
+	}
+	gp->state = TARGET_SHUTTING_DOWN;
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "shutting down target\n");
+
+	tmp = session_list;
+	while (tmp) {
+		sess = tmp->data;
+
+		/* Need to replace with a call to session_destroy() */
+
+		if (device_shutdown(sess) != 0) {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "device_shutdown() failed\n");
+			return -1;
+		}
+
+		target_sess_cleanup(sess);
+
+		tmp = tmp->next;
+	}
+
+	g_list_free(session_list);
+	session_list = NULL;
+
+	/* listen socket is shutdown at layer above us */
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "target shutdown complete\n");
+	gp->state = TARGET_SHUT_DOWN;
 
 	return 0;
 }
@@ -1815,16 +1777,9 @@ int target_accept(globals_t * gp, GConn * conn)
 	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
 		    "create, bind, listen OK\n");
 
-	ISCSI_LOCK(&g_session_q_mutex, return -1);
-	if ((sess = iscsi_queue_remove(&g_session_q)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "no free sessions: iscsi_queue_remove() failed\n");
-		goto done;
-	}
-	ISCSI_UNLOCK(&g_session_q_mutex, return -1);
-#if 0
-	(void)memset(sess, 0x0, sizeof(*sess));
-#endif
+	sess = calloc(1, sizeof(*sess));
+	if (!sess)
+		return -1;
 
 	sess->globals = gp;
 	sess->conn = conn;
@@ -1969,6 +1924,5 @@ int target_accept(globals_t * gp, GConn * conn)
 	}
 #endif
 
-done:
 	return 0;
 }

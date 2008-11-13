@@ -123,55 +123,12 @@ void iscsi_trace_warning(const char *, const int, const char *, ...);
 void iscsi_trace_error(const char *, const int, const char *, ...);
 void iscsi_print_buffer(uint8_t *, const size_t);
 
-/* Spin locks */
-
-typedef pthread_mutex_t iscsi_spin_t;
-
-int iscsi_spin_init(iscsi_spin_t *);
-int iscsi_spin_lock(iscsi_spin_t *);
-int iscsi_spin_unlock(iscsi_spin_t *);
-int iscsi_spin_lock_irqsave(iscsi_spin_t *, uint32_t *);
-int iscsi_spin_unlock_irqrestore(iscsi_spin_t *, uint32_t *);
-int iscsi_spin_destroy(iscsi_spin_t *);
-
-/*
- * End of ISCSI spin routines
- */
-
-/*
- * Queuing
- */
-
-typedef struct iscsi_queue_t {
-	int head;
-	int tail;
-	int count;
-	void **elem;
-	int depth;
-	iscsi_spin_t lock;
-} iscsi_queue_t;
-
-int iscsi_queue_init(iscsi_queue_t *, int);
-void iscsi_queue_destroy(iscsi_queue_t *);
-int iscsi_queue_insert(iscsi_queue_t *, void *);
-void *iscsi_queue_remove(iscsi_queue_t *);
-int iscsi_queue_depth(iscsi_queue_t *);
-int iscsi_queue_full(iscsi_queue_t *);
-
 /*
  * Socket Abstraction
  */
 
-/* Turning off Nagle's Algorithm doesn't always seem to work, */
-/* so we combine two messages into one when the second's size */
-/* is less than or equal to ISCSI_SOCK_HACK_CROSSOVER. */
-
-#define ISCSI_SOCK_HACK_CROSSOVER    1024
-#define ISCSI_SOCK_CONNECT_NONBLOCK  0
-#define ISCSI_SOCK_CONNECT_TIMEOUT   1
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-int iscsi_sock_shutdown(int, int);
 int iscsi_sock_msg(int, int, unsigned, void *, int);
 int iscsi_sock_send_header_and_data(GConn *,
 				    const void *, unsigned,
@@ -180,45 +137,6 @@ int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 void cdb2lba(uint32_t *, uint16_t *, uint8_t *);
 void lba2cdb(uint8_t *, uint32_t *, uint16_t *);
-
-/*
- * Mutexes
- */
-
-typedef pthread_mutex_t iscsi_mutex_t;
-
-int iscsi_mutex_init(iscsi_mutex_t *);
-int iscsi_mutex_lock(iscsi_mutex_t *);
-int iscsi_mutex_unlock(iscsi_mutex_t *);
-int iscsi_mutex_destroy(iscsi_mutex_t *);
-
-#define ISCSI_LOCK(M, ELSE)	do {					\
-	if (iscsi_mutex_lock(M) != 0) {					\
-		iscsi_trace_error(__FILE__, __LINE__, "iscsi_mutex_lock() failed\n");	\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_UNLOCK(M, ELSE)	do {					\
-	if (iscsi_mutex_unlock(M) != 0) {				\
-		iscsi_trace_error(__FILE__, __LINE__, "iscsi_mutex_unlock() failed\n");	\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_MUTEX_INIT(M, ELSE) do {					\
-	if (iscsi_mutex_init(M) != 0) {					\
-		iscsi_trace_error(__FILE__, __LINE__, "iscsi_mutex_init() failed\n");	\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
-
-#define ISCSI_MUTEX_DESTROY(M, ELSE) do {				\
-	if (iscsi_mutex_destroy(M) != 0) {				\
-		iscsi_trace_error(__FILE__, __LINE__, "iscsi_mutex_destroy() failed\n");	\
-		ELSE;							\
-	}								\
-} while (/* CONSTCOND */ 0)
 
 /*
  * Pre/Post condition checking
@@ -290,9 +208,6 @@ typedef struct name {							\
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *, const char *, size_t);
-#endif
-#ifndef HAVE_STRLCAT
-extern size_t strlcat(char *dst, const char *src, size_t siz);
 #endif
 
 #endif /* _ISCSIUTIL_H_ */

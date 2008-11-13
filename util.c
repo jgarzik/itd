@@ -122,77 +122,6 @@ void set_debug(const char *level)
 	}
 }
 
-/*
- * Queuing Functions
- */
-int iscsi_queue_init(iscsi_queue_t * q, int depth)
-{
-	q->head = q->tail = q->count = 0;
-	q->depth = depth;
-	if ((q->elem = malloc((unsigned)(depth * sizeof(void *)))) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		return -1;
-	}
-	iscsi_spin_init(&q->lock);
-	return 0;
-}
-
-void iscsi_queue_destroy(iscsi_queue_t * q)
-{
-	free(q->elem);
-}
-
-int iscsi_queue_full(iscsi_queue_t * q)
-{
-	return (q->count == q->depth);
-}
-
-int iscsi_queue_depth(iscsi_queue_t * q)
-{
-	return q->count;
-}
-
-int iscsi_queue_insert(iscsi_queue_t * q, void *ptr)
-{
-	uint32_t flags;
-
-	iscsi_spin_lock_irqsave(&q->lock, &flags);
-	if (iscsi_queue_full(q)) {
-		iscsi_trace_error(__FILE__, __LINE__, "QUEUE FULL\n");
-		iscsi_spin_unlock_irqrestore(&q->lock, &flags);
-		return -1;
-	}
-	q->elem[q->tail] = ptr;
-	q->tail++;
-	if (q->tail == q->depth) {
-		q->tail = 0;
-	}
-	q->count++;
-	iscsi_spin_unlock_irqrestore(&q->lock, &flags);
-	return 0;
-}
-
-void *iscsi_queue_remove(iscsi_queue_t * q)
-{
-	uint32_t flags = 0;
-	void *ptr;
-
-	iscsi_spin_lock_irqsave(&q->lock, &flags);
-	if (!iscsi_queue_depth(q)) {
-		iscsi_trace(TRACE_QUEUE, __FILE__, __LINE__, "QUEUE EMPTY\n");
-		iscsi_spin_unlock_irqrestore(&q->lock, &flags);
-		return NULL;
-	}
-	q->count--;
-	ptr = q->elem[q->head];
-	q->head++;
-	if (q->head == q->depth) {
-		q->head = 0;
-	}
-	iscsi_spin_unlock_irqrestore(&q->lock, &flags);
-	return ptr;
-}
-
 void
 iscsi_trace(const int trace, const char *f, const int line, const char *fmt,
 	    ...)
@@ -350,17 +279,6 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 #ifndef MAXSOCK
 #define MAXSOCK	16
 #endif
-
-int iscsi_sock_shutdown(int sock, int how)
-{
-	int rc;
-
-	if ((rc = shutdown(sock, how)) != 0) {
-		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
-			    "shutdown() failed: rc %d, errno %d\n", rc, errno);
-	}
-	return 0;
-}
 
 /*
  * NOTE: iscsi_sock_msg() alters *sg when socket sends and recvs return having only
@@ -536,73 +454,6 @@ iscsi_sock_send_header_and_data(GConn *conn,
 	}
 
 	return header_len + data_len;
-}
-
-/* spin lock functions */
-int iscsi_spin_init(iscsi_spin_t * lock)
-{
-	pthread_mutexattr_t mattr;
-
-	pthread_mutexattr_init(&mattr);
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#endif
-	if (pthread_mutex_init(lock, &mattr) != 0)
-		return -1;
-	return 0;
-}
-
-int iscsi_spin_lock(iscsi_spin_t * lock)
-{
-	return pthread_mutex_lock(lock);
-}
-
-int iscsi_spin_unlock(iscsi_spin_t * lock)
-{
-	return pthread_mutex_unlock(lock);
-}
-
-/* ARGSUSED1 */
-int iscsi_spin_lock_irqsave(iscsi_spin_t * lock, uint32_t * flags)
-{
-	return pthread_mutex_lock(lock);
-}
-
-/* ARGSUSED1 */
-int iscsi_spin_unlock_irqrestore(iscsi_spin_t * lock, uint32_t * flags)
-{
-	return pthread_mutex_unlock(lock);
-}
-
-int iscsi_spin_destroy(iscsi_spin_t * lock)
-{
-	return pthread_mutex_destroy(lock);
-}
-
-/*
- * Mutex Functions, kernel module doesn't require mutex for locking.
- * For thread sync, 'down' & 'up' have been wrapped into condition
- * varibles, which is kernel semaphores in kernel module.
- */
-
-int iscsi_mutex_init(iscsi_mutex_t * m)
-{
-	return (pthread_mutex_init(m, NULL) != 0) ? -1 : 0;
-}
-
-int iscsi_mutex_lock(iscsi_mutex_t * m)
-{
-	return pthread_mutex_lock(m);
-}
-
-int iscsi_mutex_unlock(iscsi_mutex_t * m)
-{
-	return pthread_mutex_unlock(m);
-}
-
-int iscsi_mutex_destroy(iscsi_mutex_t * m)
-{
-	return pthread_mutex_destroy(m);
 }
 
 /*
@@ -869,9 +720,8 @@ int allow_netmask(const char *netmaskarg, const char *addr)
 			i += 1;
 		}
 	}
-	for (; i < 3; i++) {
-		(void)strlcat(maskaddr, ".0", sizeof(maskaddr));
-	}
+	for (; i < 3; i++)
+		strcat(maskaddr, ".0");
 
 	/* translate netmask to in_addr */
 	if (!inet_aton(maskaddr, &m)) {
@@ -927,41 +777,5 @@ size_t strlcpy(char *dst, const char *src, size_t siz)
 	}
 
 	return (s - src - 1);	/* count does not include NUL */
-}
-#endif
-
-#ifndef HAVE_STRLCAT
-/*
- * Appends src to string dst of size siz (unlike strncat, siz is the
- * full size of dst, not space left).  At most siz-1 characters
- * will be copied.  Always NUL terminates (unless siz <= strlen(dst)).
- * Returns strlen(src) + MIN(siz, strlen(initial dst)).
- * If retval >= siz, truncation occurred.
- */
-size_t strlcat(char *dst, const char *src, size_t siz)
-{
-	char *d = dst;
-	const char *s = src;
-	size_t n = siz;
-	size_t dlen;
-
-	/* Find the end of dst and adjust bytes left but don't go past end */
-	while (n-- != 0 && *d != '\0')
-		d++;
-	dlen = d - dst;
-	n = siz - dlen;
-
-	if (n == 0)
-		return (dlen + strlen(s));
-	while (*s != '\0') {
-		if (n != 1) {
-			*d++ = *s;
-			n--;
-		}
-		s++;
-	}
-	*d = '\0';
-
-	return (dlen + (s - src));	/* count does not include NUL */
 }
 #endif
