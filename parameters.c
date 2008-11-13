@@ -1492,9 +1492,9 @@ set_session_parameters(struct iscsi_parameter *head,
 	/* These parameters are standard and assuming that they are always */
 	/* present in the list (head). */
 	memset(sess_params, 0, sizeof(struct iscsi_sess_param));
-	sess_params->max_burst_length = param_atoi(head, "MaxBurstLength");
-	sess_params->first_burst_length = param_atoi(head, "FirstBurstLength");
-	sess_params->max_data_seg_length =
+	sess_params->max_burst = param_atoi(head, "MaxBurstLength");
+	sess_params->first_burst = param_atoi(head, "FirstBurstLength");
+	sess_params->max_data_seg =
 	    param_atoi(head, "MaxRecvDataSegmentLength");
 	sess_params->header_digest =
 	    (param_equiv(head, "HeaderDigest", "Yes")) ? 1 : 0;

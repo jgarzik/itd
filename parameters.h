@@ -96,9 +96,9 @@ struct iscsi_cred {
  * on an active session
  */
 struct iscsi_sess_param {
-	uint32_t        max_burst_length;
-	uint32_t        first_burst_length;
-	uint32_t        max_data_seg_length;
+	uint32_t        max_burst;
+	uint32_t        first_burst;
+	uint32_t        max_data_seg;
 	struct iscsi_cred cred;
 	uint8_t         initial_r2t;
 	uint8_t         immediate_data;
