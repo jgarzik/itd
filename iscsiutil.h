@@ -127,11 +127,12 @@ extern uint32_t iscsi_debug_level;
 /*
  * Debugging Functions
  */
-extern void set_debug(const char *);
-extern void iscsi_trace(const int, const char *, const int, const char *, ...);
-extern void iscsi_trace_warning(const char *, const int, const char *, ...);
-extern void iscsi_trace_error(const char *, const int, const char *, ...);
-extern void iscsi_print_buffer(uint8_t *, const size_t);
+extern void     set_debug(const char *);
+extern void     iscsi_trace(const int, const char *, const int, const char *,
+			    ...);
+extern void     iscsi_trace_warning(const char *, const int, const char *, ...);
+extern void     iscsi_trace_error(const char *, const int, const char *, ...);
+extern void     iscsi_print_buffer(uint8_t *, const size_t);
 
 /*
  * Socket Abstraction
@@ -139,14 +140,14 @@ extern void iscsi_print_buffer(uint8_t *, const size_t);
 
 #define ISCSI_SOCK_MSG_BYTE_ALIGN    4
 
-extern int iscsi_sock_msg(int, int, unsigned, void *, int);
-extern int iscsi_sock_send_header_and_data(GConn *,
-					   const void *, unsigned,
-					   const void *, unsigned, int);
-extern int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
+extern int      iscsi_sock_msg(int, int, unsigned, void *, int);
+extern int      iscsi_sock_send_header_and_data(GConn *,
+						const void *, unsigned,
+						const void *, unsigned, int);
+extern int      modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
-extern void cdb2lba(uint32_t *, uint16_t *, uint8_t *);
-extern void lba2cdb(uint8_t *, uint32_t *, uint16_t *);
+extern void     cdb2lba(uint32_t *, uint16_t *, uint8_t *);
+extern void     lba2cdb(uint8_t *, uint32_t *, uint16_t *);
 
 /*
  * Pre/Post condition checking
@@ -184,9 +185,9 @@ if ((V1)==(V2)) {                                                    \
  */
 
 extern uint32_t iscsi_atoi(char *);
-extern int HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
-extern int HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
-extern void GenRandomData(uint8_t *, uint32_t);
+extern int      HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
+extern int      HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
+extern void     GenRandomData(uint8_t *, uint32_t);
 
 /* this is the maximum number of iovecs which we can use in iscsi_sock_send_header_and_data */
 #ifndef ISCSI_MAX_IOVECS
@@ -199,7 +200,7 @@ enum {
 	Transmit = 1
 };
 
-extern int allow_netmask(const char *, const char *);
+extern int      allow_netmask(const char *, const char *);
 
 #define NEWARRAY(type,ptr,size,where,action) do {			\
 	if ((ptr = (type *) calloc(sizeof(type), (unsigned)(size))) == NULL) { \
@@ -217,7 +218,7 @@ typedef struct name {							\
 } name
 
 #ifndef HAVE_STRLCPY
-extern size_t strlcpy(char *, const char *, size_t);
+extern size_t   strlcpy(char *, const char *, size_t);
 #endif
 
 #endif /* _ISCSIUTIL_H_ */

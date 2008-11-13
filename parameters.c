@@ -205,16 +205,17 @@ struct iscsi_parameter *param_get(struct iscsi_parameter *head, const char *key)
 	return NULL;
 }
 
-char *param_val(struct iscsi_parameter *head, const char *key)
+char           *param_val(struct iscsi_parameter *head, const char *key)
 {
 	return param_val_which(head, key, 0);
 }
 
-char *param_val_which(struct iscsi_parameter *head, const char *key, int which)
+char           *param_val_which(struct iscsi_parameter *head, const char *key,
+				int which)
 {
 	struct iscsi_parameter *ptr;
 	struct iscsi_parameter_item *item_ptr;
-	int i = 0;
+	int             i = 0;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -281,7 +282,7 @@ int param_val_reset(struct iscsi_parameter *head, const char *key)
 int param_atoi(struct iscsi_parameter *head, const char *key)
 {
 	struct iscsi_parameter *ptr;
-	char *value;
+	char           *value;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -309,7 +310,7 @@ int param_atoi(struct iscsi_parameter *head, const char *key)
 int param_equiv(struct iscsi_parameter *head, const char *key, const char *val)
 {
 	struct iscsi_parameter *ptr;
-	char *value;
+	char           *value;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -337,7 +338,7 @@ int param_num_vals(struct iscsi_parameter *head, char *key)
 {
 	struct iscsi_parameter *ptr;
 	struct iscsi_parameter_item *item_ptr;
-	int num = 0;
+	int             num = 0;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -369,8 +370,8 @@ int param_list_print(struct iscsi_parameter *head)
 
 int param_text_print(char *text, uint32_t text_len)
 {
-	char key[256];
-	char *ptr, *eq, *value;
+	char            key[256];
+	char           *ptr, *eq, *value;
 
 	for (ptr = text; ptr - text < text_len; ptr += (strlen(ptr) + 1)) {
 
@@ -400,7 +401,7 @@ int
 param_text_add(struct iscsi_parameter *head, const char *key, const char *value,
 	       char *text, int *len, int size, int offer)
 {
-	int cc;
+	int             cc;
 
 	cc = snprintf(text + *len, (unsigned)(size - *len), "%s=%s", key,
 		      value);
@@ -410,7 +411,7 @@ param_text_add(struct iscsi_parameter *head, const char *key, const char *value,
 
 int driver_atoi(const char *s)
 {
-	int k = 0;
+	int             k = 0;
 
 	while (*s != 0x0 && *s >= '0' && *s <= '9') {
 		k = 10 * k + (*s - '0');
@@ -424,10 +425,10 @@ static int find_credentials(struct iscsi_cred *cred, char *user,
 			    const char *auth)
 {
 #if 0
-	conffile_t conf;
-	const char *authtype;
-	unsigned cc;
-	ent_t e;
+	conffile_t      conf;
+	const char     *authtype;
+	unsigned        cc;
+	ent_t           e;
 
 	memset(&conf, 0x0, sizeof(conf));
 	memset(&e, 0x0, sizeof(e));
@@ -492,13 +493,13 @@ param_parse_security(struct iscsi_parameter *head,
 		     char *text_out, int *text_len_out, int textsize)
 {
 
-	static uint8_t idData;
-	static uint8_t chapdata[ISCSI_CHAP_DATA_LENGTH];
-	static uint8_t respdata[ISCSI_CHAP_DATA_LENGTH];
-	char *chapstring = NULL;
-	MD5_CTX *context = NULL;
+	static uint8_t  idData;
+	static uint8_t  chapdata[ISCSI_CHAP_DATA_LENGTH];
+	static uint8_t  respdata[ISCSI_CHAP_DATA_LENGTH];
+	char           *chapstring = NULL;
+	MD5_CTX        *context = NULL;
 	struct iscsi_parameter *param = NULL;
-	int ret = 1;
+	int             ret = 1;
 
 	if ((chapstring = malloc(ISCSI_CHAP_STRING_LENGTH)) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
@@ -672,7 +673,7 @@ param_parse_security(struct iscsi_parameter *head,
 		ret++;
 
 	} else if (strcmp(param_in->key, "CHAP_N") == 0) {
-		char *user;
+		char           *user;
 
 		user = (param_in->rx_offer) ? param_in->offer_rx :
 		    param_in->answer_rx;
@@ -734,20 +735,20 @@ param_text_parse(struct iscsi_parameter *head,
 		 char *text_in, int text_len_in,
 		 char *text_out, int *text_len_out, int textsize, int outgoing)
 {
-	static char *key = NULL;
-	char *value = NULL;
-	char *ptr, *eq;
+	static char    *key = NULL;
+	char           *value = NULL;
+	char           *ptr, *eq;
 	struct iscsi_parameter *param;
 	struct iscsi_parameter_item *item_ptr;
-	int offer_i, answer_i, max_i, val1_i, val2_i, negotiated_i;
-	char *p1, *p2, *p3, *p4;
-	char *offer = NULL;
-	char *valid = NULL;
-	char *val1 = NULL;
-	char *val2 = NULL;
-	char *tmp_key = NULL;
-	char c;
-	int ret;
+	int             offer_i, answer_i, max_i, val1_i, val2_i, negotiated_i;
+	char           *p1, *p2, *p3, *p4;
+	char           *offer = NULL;
+	char           *valid = NULL;
+	char           *val1 = NULL;
+	char           *val2 = NULL;
+	char           *tmp_key = NULL;
+	char            c;
+	int             ret;
 
 	/*
 	 * Whether incoming or outgoing, some of the params might be offers

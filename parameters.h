@@ -80,15 +80,15 @@ enum {
 };
 
 struct iscsi_parameter_item {
-	char value[ISCSI_PARAM_MAX_LEN];
+	char            value[ISCSI_PARAM_MAX_LEN];
 	struct iscsi_parameter_item *next;
 };
 
 /* this struct defines the credentials a user has */
 struct iscsi_cred {
-	char *user;		/* user's name */
-	char *auth_type;	/* preferred authentication type */
-	char *shared_secret;	/* the shared secret which will be used */
+	char           *user;	/* user's name */
+	char           *auth_type;	/* preferred authentication type */
+	char           *shared_secret;	/* the shared secret which will be used */
 };
 
 /*
@@ -96,60 +96,61 @@ struct iscsi_cred {
  * on an active session
  */
 struct iscsi_sess_param {
-	uint32_t max_burst_length;
-	uint32_t first_burst_length;
-	uint32_t max_data_seg_length;
+	uint32_t        max_burst_length;
+	uint32_t        first_burst_length;
+	uint32_t        max_data_seg_length;
 	struct iscsi_cred cred;
-	uint8_t initial_r2t;
-	uint8_t immediate_data;
-	uint8_t header_digest;
-	uint8_t data_digest;
-	uint8_t auth_type;
-	uint8_t mutual_auth;
-	uint8_t digest_wanted;
+	uint8_t         initial_r2t;
+	uint8_t         immediate_data;
+	uint8_t         header_digest;
+	uint8_t         data_digest;
+	uint8_t         auth_type;
+	uint8_t         mutual_auth;
+	uint8_t         digest_wanted;
 };
 
 struct iscsi_parameter {
-	char key[ISCSI_PARAM_KEY_LEN];	/* key */
-	int type;		/* type of parameter */
-	char valid[ISCSI_PARAM_MAX_LEN];	/* list of valid values */
-	char dflt[ISCSI_PARAM_MAX_LEN];	/* default value */
+	char            key[ISCSI_PARAM_KEY_LEN];	/* key */
+	int             type;	/* type of parameter */
+	char            valid[ISCSI_PARAM_MAX_LEN];	/* list of valid values */
+	char            dflt[ISCSI_PARAM_MAX_LEN];	/* default value */
 	struct iscsi_parameter_item *value_l;	/* value list */
-	char offer_rx[ISCSI_PARAM_MAX_LEN];	/* outgoing offer */
-	char offer_tx[ISCSI_PARAM_MAX_LEN];	/* incoming offer */
-	char answer_tx[ISCSI_PARAM_MAX_LEN];	/* outgoing answer */
-	char answer_rx[ISCSI_PARAM_MAX_LEN];	/* incoming answer */
-	char negotiated[ISCSI_PARAM_MAX_LEN];	/* negotiated value */
-	int tx_offer;		/* sent offer  */
-	int rx_offer;		/* received offer  */
-	int tx_answer;		/* sent answer */
-	int rx_answer;		/* received answer */
-	int reset;		/* reset value_l */
+	char            offer_rx[ISCSI_PARAM_MAX_LEN];	/* outgoing offer */
+	char            offer_tx[ISCSI_PARAM_MAX_LEN];	/* incoming offer */
+	char            answer_tx[ISCSI_PARAM_MAX_LEN];	/* outgoing answer */
+	char            answer_rx[ISCSI_PARAM_MAX_LEN];	/* incoming answer */
+	char            negotiated[ISCSI_PARAM_MAX_LEN];	/* negotiated value */
+	int             tx_offer;	/* sent offer  */
+	int             rx_offer;	/* received offer  */
+	int             tx_answer;	/* sent answer */
+	int             rx_answer;	/* received answer */
+	int             reset;	/* reset value_l */
 	struct iscsi_parameter *next;
 };
 
-int param_list_add(struct iscsi_parameter **, int, const char *, const char *,
-		   const char *);
-int param_list_print(struct iscsi_parameter *);
-int param_list_destroy(struct iscsi_parameter *);
-int param_text_add(struct iscsi_parameter *, const char *, const char *, char *,
-		   int *, int, int);
-int param_text_parse(struct iscsi_parameter *, struct iscsi_cred *, char *, int,
-		     char *, int *, int, int);
-int param_text_print(char *, uint32_t);
-int param_num_vals(struct iscsi_parameter *, char *);
-int param_val_reset(struct iscsi_parameter *, const char *);
-char *param_val(struct iscsi_parameter *, const char *);
-char *param_val_which(struct iscsi_parameter *, const char *, int);
-char *param_offer(struct iscsi_parameter *, char *);
-char *param_answer(struct iscsi_parameter *, char *);
+int             param_list_add(struct iscsi_parameter **, int, const char *,
+			       const char *, const char *);
+int             param_list_print(struct iscsi_parameter *);
+int             param_list_destroy(struct iscsi_parameter *);
+int             param_text_add(struct iscsi_parameter *, const char *,
+			       const char *, char *, int *, int, int);
+int             param_text_parse(struct iscsi_parameter *, struct iscsi_cred *,
+				 char *, int, char *, int *, int, int);
+int             param_text_print(char *, uint32_t);
+int             param_num_vals(struct iscsi_parameter *, char *);
+int             param_val_reset(struct iscsi_parameter *, const char *);
+char           *param_val(struct iscsi_parameter *, const char *);
+char           *param_val_which(struct iscsi_parameter *, const char *, int);
+char           *param_offer(struct iscsi_parameter *, char *);
+char           *param_answer(struct iscsi_parameter *, char *);
 struct iscsi_parameter *param_get(struct iscsi_parameter *, const char *);
-int driver_atoi(const char *);
-int param_atoi(struct iscsi_parameter *, const char *);
-int param_equiv(struct iscsi_parameter *, const char *, const char *);
-int param_commit(struct iscsi_parameter *);
-void set_session_parameters(struct iscsi_parameter *,
-			    struct iscsi_sess_param *);
+int             driver_atoi(const char *);
+int             param_atoi(struct iscsi_parameter *, const char *);
+int             param_equiv(struct iscsi_parameter *, const char *,
+			    const char *);
+int             param_commit(struct iscsi_parameter *);
+void            set_session_parameters(struct iscsi_parameter *,
+				       struct iscsi_sess_param *);
 
 /*
  * Macros

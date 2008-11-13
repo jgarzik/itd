@@ -126,7 +126,7 @@ int iscsi_task_cmd_decap(uint8_t * header, struct iscsi_task_cmd *cmd)
 int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp *rsp)
 {
 
-	uint32_t length;
+	uint32_t        length;
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Response:  %u\n",
 		    rsp->response);
@@ -211,7 +211,7 @@ int iscsi_nop_out_decap(uint8_t * header, struct iscsi_nop_out_args *cmd)
 
 int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args *cmd)
 {
-	uint32_t length;
+	uint32_t        length;
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Length:       %u\n",
 		    cmd->length);
@@ -310,7 +310,7 @@ int iscsi_text_cmd_decap(uint8_t * header, struct iscsi_text_cmd_args *cmd)
 
 int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args *rsp)
 {
-	uint32_t length;
+	uint32_t        length;
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Final:        %d\n",
 		    rsp->final);
@@ -730,7 +730,7 @@ int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp *rsp)
 
 int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t *cmd)
 {
-	uint32_t length;
+	uint32_t        length;
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
 		    "TotalAHSLength:    %u\n", cmd->AHSlength);

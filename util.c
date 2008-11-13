@@ -137,8 +137,8 @@ iscsi_trace(const int trace, const char *f, const int line, const char *fmt,
 	    ...)
 {
 #ifdef CONFIG_ISCSI_DEBUG
-	va_list vp;
-	char buf[8192];
+	va_list         vp;
+	char            buf[8192];
 
 	if (iscsi_debug_level & trace) {
 		va_start(vp, fmt);
@@ -152,8 +152,8 @@ iscsi_trace(const int trace, const char *f, const int line, const char *fmt,
 void iscsi_trace_warning(const char *f, const int line, const char *fmt, ...)
 {
 #ifdef CONFIG_ISCSI_DEBUG
-	va_list vp;
-	char buf[8192];
+	va_list         vp;
+	char            buf[8192];
 
 	if (iscsi_debug_level & TRACE_WARN) {
 		va_start(vp, fmt);
@@ -168,8 +168,8 @@ void iscsi_trace_warning(const char *f, const int line, const char *fmt, ...)
 void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 {
 #ifdef CONFIG_ISCSI_DEBUG
-	va_list vp;
-	char buf[8192];
+	va_list         vp;
+	char            buf[8192];
 
 	va_start(vp, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, vp);
@@ -184,7 +184,7 @@ void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 void iscsi_print_buffer(uint8_t * buf, const size_t len)
 {
 #ifdef CONFIG_ISCSI_DEBUG
-	int i;
+	int             i;
 
 	if (iscsi_debug_level & TRACE_NET_BUFF) {
 		for (i = 0; i < len; i++) {
@@ -210,11 +210,11 @@ void iscsi_print_buffer(uint8_t * buf, const size_t len)
 int
 modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 {
-	int len;
-	int disp = offset;
-	int i;
-	struct iovec *iov = *iov_ptr;
-	char *basep;
+	int             len;
+	int             disp = offset;
+	int             i;
+	struct iovec   *iov = *iov_ptr;
+	char           *basep;
 
 	/* Given <offset>, find beginning iovec and modify its base and length */
 	len = 0;
@@ -298,15 +298,15 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 
 int iscsi_sock_msg(int sock, int xmit, unsigned len, void *data, int iovc)
 {
-	int i, n = 0;
-	int rc;
-	struct iovec *iov;
-	struct iovec singleton;
-	uint8_t padding[ISCSI_SOCK_MSG_BYTE_ALIGN];
-	struct iovec *iov_padding = NULL;
-	uint32_t remainder;
-	uint32_t padding_len = 0;
-	int total_len = 0;
+	int             i, n = 0;
+	int             rc;
+	struct iovec   *iov;
+	struct iovec    singleton;
+	uint8_t         padding[ISCSI_SOCK_MSG_BYTE_ALIGN];
+	struct iovec   *iov_padding = NULL;
+	uint32_t        remainder;
+	uint32_t        padding_len = 0;
+	int             total_len = 0;
 
 	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
 		    "%s %d bytes on sock\n", xmit ? "sending" : "receiving",
@@ -454,8 +454,8 @@ iscsi_sock_send_header_and_data(GConn * conn,
 		gnet_conn_write(conn, (void *)data, data_len);
 
 	else {
-		struct iovec iov[ISCSI_MAX_IOVECS];
-		int i;
+		struct iovec    iov[ISCSI_MAX_IOVECS];
+		int             i;
 
 		memcpy(&iov[0], data, sizeof(struct iovec) * iovc);
 
@@ -485,7 +485,7 @@ static const char HexString[] = "0123456789abcdef";
 /* get the hex value (subscript) of the character */
 static int HexStringIndex(const char *s, int c)
 {
-	const char *cp;
+	const char     *cp;
 
 	return (c == '0') ? 0 : ((cp = strchr(s, tolower(c))) ==
 				 NULL) ? -1 : (int)(cp - s);
@@ -495,7 +495,7 @@ int
 HexDataToText(uint8_t * data, uint32_t dataLength,
 	      char *text, uint32_t textLength)
 {
-	uint32_t n;
+	uint32_t        n;
 
 	if (!text || textLength == 0) {
 		return -1;
@@ -537,10 +537,10 @@ int
 HexTextToData(const char *text, uint32_t textLength,
 	      uint8_t * data, uint32_t dataLength)
 {
-	int i;
-	uint32_t n1;
-	uint32_t n2;
-	uint32_t len = 0;
+	int             i;
+	uint32_t        n1;
+	uint32_t        n2;
+	uint32_t        len = 0;
 
 	if ((text[0] == '0') && (text[1] != 'x' || text[1] != 'X')) {
 		/* skip prefix */
@@ -595,8 +595,8 @@ HexTextToData(const char *text, uint32_t textLength,
 
 void GenRandomData(uint8_t * data, uint32_t length)
 {
-	unsigned n;
-	uint32_t r;
+	unsigned        n;
+	uint32_t        r;
 
 	for (; length > 0; length--) {
 
@@ -624,7 +624,7 @@ void cdb2lba(uint32_t * lba, uint16_t * len, uint8_t * cdb)
 	/* Some platforms (like strongarm) aligns on */
 	/* word boundaries.  So htonl and ntohl won't */
 	/* work here. */
-	int indian = 1;
+	int             indian = 1;
 
 	if (*(char *)(void *)&indian) {
 		/* little endian */
@@ -649,7 +649,7 @@ void lba2cdb(uint8_t * cdb, uint32_t * lba, uint16_t * len)
 	/* Some platforms (like strongarm) aligns on */
 	/* word boundaries.  So htonl and ntohl won't */
 	/* work here. */
-	int indian = 1;
+	int             indian = 1;
 
 	if (*(char *)(void *)&indian) {
 		/* little endian */
@@ -676,11 +676,11 @@ enum {
 
 /* this struct is used to define a magic netmask value */
 typedef struct magic_t {
-	const char *magic;	/* string to match */
-	const char *xform;	/* string to transform it into */
+	const char     *magic;	/* string to match */
+	const char     *xform;	/* string to transform it into */
 } magic_t;
 
-static magic_t magics[] = {
+static magic_t  magics[] = {
 	{"any", "0/0"},
 	{"all", "0/0"},
 	{"none", "0/32"},
@@ -690,14 +690,14 @@ static magic_t magics[] = {
 /* return 1 if address is in netmask's range */
 int allow_netmask(const char *netmaskarg, const char *addr)
 {
-	struct in_addr a;
-	struct in_addr m;
-	const char *netmask;
-	magic_t *mp;
-	char maskaddr[NETMASK_BUFFER_SIZE];
-	char *cp;
-	int slash;
-	int i;
+	struct in_addr  a;
+	struct in_addr  m;
+	const char     *netmask;
+	magic_t        *mp;
+	char            maskaddr[NETMASK_BUFFER_SIZE];
+	char           *cp;
+	int             slash;
+	int             i;
 
 	/* firstly check for any magic values in the netmask */
 	netmask = netmaskarg;
@@ -767,9 +767,9 @@ int allow_netmask(const char *netmaskarg, const char *addr)
  */
 size_t strlcpy(char *dst, const char *src, size_t siz)
 {
-	char *d = dst;
-	const char *s = src;
-	size_t n = siz;
+	char           *d = dst;
+	const char     *s = src;
+	size_t          n = siz;
 
 	/* Copy as many bytes as will fit */
 	if (n != 0 && --n != 0) {

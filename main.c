@@ -27,7 +27,7 @@
 #include "target.h"
 #include "parameters.h"
 
-uint32_t iscsi_debug_level = 0;
+uint32_t        iscsi_debug_level = 0;
 
 static GServer *tcp_srv;
 
@@ -69,7 +69,7 @@ static void net_exit(void)
 	gnet_server_unref(tcp_srv);
 }
 
-static targv_t tv_all[4];
+static targv_t  tv_all[4];
 
 static int master_iscsi_init(void)
 {
@@ -83,7 +83,7 @@ static void master_iscsi_exit(void)
 
 int main(int argc, char *argv[])
 {
-	GMainLoop *ml;
+	GMainLoop      *ml;
 
 	ml = g_main_loop_new(NULL, FALSE);
 	if (!ml)

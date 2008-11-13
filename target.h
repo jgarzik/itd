@@ -50,8 +50,8 @@
 
 /* a device can be made up of an extent or another device */
 struct disc_de {
-	int32_t type;		/* device or extent */
-	uint64_t size;		/* size of underlying extent or device */
+	int32_t         type;	/* device or extent */
+	uint64_t        size;	/* size of underlying extent or device */
 	union {
 		struct disc_extent *xp;	/* pointer to extent */
 		struct disc_device *dp;	/* pointer to device */
@@ -60,26 +60,26 @@ struct disc_de {
 
 /* this struct describes an extent of storage */
 struct disc_extent {
-	char *extent;		/* extent name */
-	char *dev;		/* device associated with it */
-	uint64_t sacred;	/* offset of extent from start of device */
-	uint64_t len;		/* size of extent */
-	int fd;			/* in-core file descriptor */
-	int used;		/* extent has been used in a device */
+	char           *extent;	/* extent name */
+	char           *dev;	/* device associated with it */
+	uint64_t        sacred;	/* offset of extent from start of device */
+	uint64_t        len;	/* size of extent */
+	int             fd;	/* in-core file descriptor */
+	int             used;	/* extent has been used in a device */
 };
 
 DEFINE_ARRAY(extv_t, struct disc_extent);
 
 /* this struct describes a device */
 struct disc_device {
-	char *dev;		/* device name */
-	int raid;		/* RAID level */
-	uint64_t off;		/* current offset in device */
-	uint64_t len;		/* size of device */
-	uint32_t size;		/* size of device/extent array */
-	uint32_t c;		/* # of entries in device/extents */
+	char           *dev;	/* device name */
+	int             raid;	/* RAID level */
+	uint64_t        off;	/* current offset in device */
+	uint64_t        len;	/* size of device */
+	uint32_t        size;	/* size of device/extent array */
+	uint32_t        c;	/* # of entries in device/extents */
 	struct disc_de *xv;	/* device/extent array */
-	int used;		/* device has been used in a device/target */
+	int             used;	/* device has been used in a device/target */
 };
 
 DEFINE_ARRAY(devv_t, struct disc_device);
@@ -90,12 +90,12 @@ enum {
 
 /* this struct describes an iscsi target's associated features */
 struct disc_target {
-	char *target;		/* target name */
-	struct disc_de de;	/* pointer to its device */
-	uint16_t port;		/* port to listen on */
-	char *mask;		/* mask to export it to */
-	uint32_t flags;		/* any flags */
-	uint16_t tsih;		/* target session identifying handle */
+	char           *target;	/* target name */
+	struct disc_de  de;	/* pointer to its device */
+	uint16_t        port;	/* port to listen on */
+	char           *mask;	/* mask to export it to */
+	uint32_t        flags;	/* any flags */
+	uint16_t        tsih;	/* target session identifying handle */
 };
 
 DEFINE_ARRAY(targv_t, struct disc_target);
@@ -124,19 +124,19 @@ enum {
 
 /* global variables, moved from target.c */
 struct globals {
-	char targetname[MAX_TGT_NAME_SIZE];	/* name of target */
-	uint16_t port;		/* target port */
-	int sock;		/* socket on which it's listening */
-	int sockc;		/* # of live sockets on which it's listening */
-	int sockv[MAXSOCK];	/* sockets on which it's listening */
-	int famv[MAXSOCK];	/* address families */
-	int state;		/* current state of target */
-	char targetaddress[MAX_TGT_NAME_SIZE];	/* iSCSI TargetAddress */
-	targv_t *tv;		/* array of target devices */
-	int address_family;	/* global default IP address family */
-	int max_sessions;	/* maximum number of sessions */
-	char config_file[MAX_CONFIG_FILE_NAME];	/* config file name */
-	uint32_t last_tsih;	/* the last TSIH that was used */
+	char            targetname[MAX_TGT_NAME_SIZE];	/* name of target */
+	uint16_t        port;	/* target port */
+	int             sock;	/* socket on which it's listening */
+	int             sockc;	/* # of live sockets on which it's listening */
+	int             sockv[MAXSOCK];	/* sockets on which it's listening */
+	int             famv[MAXSOCK];	/* address families */
+	int             state;	/* current state of target */
+	char            targetaddress[MAX_TGT_NAME_SIZE];	/* iSCSI TargetAddress */
+	targv_t        *tv;	/* array of target devices */
+	int             address_family;	/* global default IP address family */
+	int             max_sessions;	/* maximum number of sessions */
+	char            config_file[MAX_CONFIG_FILE_NAME];	/* config file name */
+	uint32_t        last_tsih;	/* the last TSIH that was used */
 };
 
 enum session_read_state {
@@ -147,46 +147,46 @@ enum session_read_state {
 
 /* session parameters */
 struct target_session {
-	int id;
-	int d;
-	int sock;
-	GConn *conn;
-	uint16_t cid;
-	uint32_t StatSN;
-	uint32_t ExpCmdSN;
-	uint32_t MaxCmdSN;
-	uint8_t *buff;
-	int UsePhaseCollapsedRead;
-	int IsFullFeature;
-	int IsLoggedIn;
-	int LoginStarted;
-	uint64_t isid;
-	int tsih;
+	int             id;
+	int             d;
+	int             sock;
+	GConn          *conn;
+	uint16_t        cid;
+	uint32_t        StatSN;
+	uint32_t        ExpCmdSN;
+	uint32_t        MaxCmdSN;
+	uint8_t        *buff;
+	int             UsePhaseCollapsedRead;
+	int             IsFullFeature;
+	int             IsLoggedIn;
+	int             LoginStarted;
+	uint64_t        isid;
+	int             tsih;
 	struct globals *globals;
 	struct iscsi_parameter *params;
 	struct iscsi_sess_param sess_params;
-	char initiator[MAX_INITIATOR_ADDRESS_SIZE];
-	int address_family;
-	int32_t last_tsih;
+	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
+	int             address_family;
+	int32_t         last_tsih;
 	enum session_read_state readst;
-	uint8_t header[ISCSI_HEADER_LEN];
-	uint8_t *ahs;
-	int ahs_len;
+	uint8_t         header[ISCSI_HEADER_LEN];
+	uint8_t        *ahs;
+	int             ahs_len;
 };
 
 struct target_cmd {
 	struct iscsi_scsi_cmd_args *scsi_cmd;
-	int (*callback) (void *);
-	void *callback_arg;
+	int             (*callback) (void *);
+	void           *callback_arg;
 };
 
-extern int target_init(struct globals *, targv_t *, char *);
-extern int target_shutdown(struct globals *);
-extern int target_accept(struct globals *gp, GConn * conn);
-extern int target_sess_cleanup(struct target_session *sess);
-extern int target_transfer_data(struct target_session *,
-				struct iscsi_scsi_cmd_args *, struct iovec *,
-				int);
+extern int      target_init(struct globals *, targv_t *, char *);
+extern int      target_shutdown(struct globals *);
+extern int      target_accept(struct globals *gp, GConn * conn);
+extern int      target_sess_cleanup(struct target_session *sess);
+extern int      target_transfer_data(struct target_session *,
+				     struct iscsi_scsi_cmd_args *,
+				     struct iovec *, int);
 
 /* 
  * Interface from target to device:
@@ -196,9 +196,9 @@ extern int target_transfer_data(struct target_session *,
  * device_shutdown() shuts down the device.
  */
 
-extern int device_init(struct globals *, targv_t *, struct disc_target *);
-extern int device_command(struct target_session *, struct target_cmd *);
-extern int device_shutdown(struct target_session *);
-extern void device_set_var(const char *, char *);
+extern int      device_init(struct globals *, targv_t *, struct disc_target *);
+extern int      device_command(struct target_session *, struct target_cmd *);
+extern int      device_shutdown(struct target_session *);
+extern void     device_set_var(const char *, char *);
 
 #endif /* _TARGET_H_ */
