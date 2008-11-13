@@ -49,8 +49,8 @@
  * iSCSI Version 18
  */
 
-#define ISCSI_VENDOR	"NetBSD"
-#define ISCSI_PRODUCT	"NetBSD iSCSI"
+#define ISCSI_VENDOR	"Bowzer"
+#define ISCSI_PRODUCT	"Bowzer iSCSI"
 #define ISCSI_VERSION	0
 
 /*
