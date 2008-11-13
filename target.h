@@ -165,7 +165,7 @@ typedef struct target_session_t {
 } target_session_t;
 
 typedef struct target_cmd_t {
-	iscsi_scsi_cmd_args_t *scsi_cmd;
+	struct iscsi_scsi_cmd_args *scsi_cmd;
 	int (*callback) (void *);
 	void *callback_arg;
 } target_cmd_t;
@@ -174,7 +174,7 @@ extern int target_init(globals_t *, targv_t *, char *);
 extern int target_shutdown(globals_t *);
 extern int target_accept(globals_t * gp, GConn * conn);
 extern int target_sess_cleanup(target_session_t *sess);
-extern int target_transfer_data(target_session_t *, iscsi_scsi_cmd_args_t *,
+extern int target_transfer_data(target_session_t *, struct iscsi_scsi_cmd_args *,
 			 struct iovec *, int);
 
 

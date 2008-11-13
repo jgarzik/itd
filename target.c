@@ -104,7 +104,7 @@ static GList *session_list;
 
 static int reject_t(target_session_t * sess, uint8_t * header, uint8_t reason)
 {
-	iscsi_reject_t reject;
+	struct iscsi_reject reject;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 
 	iscsi_trace_error(__FILE__, __LINE__, "reject %x\n", reason);
@@ -134,9 +134,9 @@ static int reject_t(target_session_t * sess, uint8_t * header, uint8_t reason)
 static int scsi_command_t(target_session_t * sess, uint8_t * header)
 {
 	target_cmd_t cmd;
-	iscsi_scsi_cmd_args_t scsi_cmd;
-	iscsi_scsi_rsp_t scsi_rsp;
-	iscsi_read_data_t data;
+	struct iscsi_scsi_cmd_args scsi_cmd;
+	struct iscsi_scsi_rsp scsi_rsp;
+	struct iscsi_read_data data;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 	uint32_t DataSN = 0;
 
@@ -505,8 +505,8 @@ response:
 
 static int task_command_t(target_session_t * sess, uint8_t * header)
 {
-	iscsi_task_cmd_t cmd;
-	iscsi_task_rsp_t rsp;
+	struct iscsi_task_cmd cmd;
+	struct iscsi_task_rsp rsp;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 
 	/* Get & check args */
@@ -576,7 +576,7 @@ static int task_command_t(target_session_t * sess, uint8_t * header)
 
 static int nop_out_t(target_session_t * sess, uint8_t * header)
 {
-	iscsi_nop_out_args_t nop_out;
+	struct iscsi_nop_out_args nop_out;
 
 	if (iscsi_nop_out_decap(header, &nop_out) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -600,7 +600,7 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
 		iscsi_print_buffer(sess->buff, nop_out.length);
 	}
 	if (nop_out.tag != 0xffffffff) {
-		iscsi_nop_in_args_t nop_in;
+		struct iscsi_nop_in_args nop_in;
 		uint8_t rsp_header[ISCSI_HEADER_LEN];
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -639,8 +639,8 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
 
 static int text_command_t(target_session_t * sess, uint8_t * header)
 {
-	iscsi_text_cmd_args_t text_cmd;
-	iscsi_text_rsp_args_t text_rsp;
+	struct iscsi_text_cmd_args text_cmd;
+	struct iscsi_text_rsp_args text_rsp;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 	char *text_in = NULL;
 	char *text_out = NULL;
@@ -835,8 +835,8 @@ static int find_target_tsih(globals_t * globals, int tsih)
 
 static int login_command_t(target_session_t * sess, uint8_t * header)
 {
-	iscsi_login_cmd_args_t cmd;
-	iscsi_login_rsp_args_t rsp;
+	struct iscsi_login_cmd_args cmd;
+	struct iscsi_login_rsp_args rsp;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 	char *text_in = NULL;
 	char *text_out = NULL;
@@ -1120,8 +1120,8 @@ response:
 
 static int logout_command_t(target_session_t * sess, uint8_t * header)
 {
-	iscsi_logout_cmd_args_t cmd;
-	iscsi_logout_rsp_args_t rsp;
+	struct iscsi_logout_cmd_args cmd;
+	struct iscsi_logout_rsp_args rsp;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 	char logbuf[BUFSIZ];
 	int i;
@@ -1201,7 +1201,7 @@ static int verify_cmd_t(target_session_t * sess, uint8_t * header)
 	}
 	if (!sess->IsFullFeature
 	    && ((op != ISCSI_LOGIN_CMD) && (op != ISCSI_LOGOUT_CMD))) {
-		iscsi_login_rsp_args_t rsp;
+		struct iscsi_login_rsp_args rsp;
 		uint8_t rsp_header[ISCSI_HEADER_LEN];
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "session %d: iSCSI op %#x attempted before FULL FEATURE\n",
@@ -1320,8 +1320,8 @@ static int execute_t(target_session_t * sess, uint8_t * header)
 }
 
 static int
-read_data_pdu(target_session_t * sess,
-	      iscsi_write_data_t * data, iscsi_scsi_cmd_args_t * args)
+read_data_pdu(target_session_t *sess,
+	      struct iscsi_write_data *data, struct iscsi_scsi_cmd_args *args)
 {
 	uint8_t header[ISCSI_HEADER_LEN];
 	int ret_val = -1;
@@ -1371,10 +1371,10 @@ read_data_pdu(target_session_t * sess,
 }
 
 int
-target_transfer_data(target_session_t * sess, iscsi_scsi_cmd_args_t * args,
+target_transfer_data(target_session_t * sess, struct iscsi_scsi_cmd_args * args,
 		     struct iovec *sg, int sg_len)
 {
-	iscsi_write_data_t data;
+	struct iscsi_write_data data;
 	struct iovec *iov, *iov_ptr = NULL;
 	int iov_len;
 
@@ -1439,7 +1439,7 @@ target_transfer_data(target_session_t * sess, iscsi_scsi_cmd_args_t * args,
 	if (args->bytes_recv < args->trans_len) {
 		int r2t_flag = 0;
 		int read_status = 0;
-		iscsi_r2t_t r2t;
+		struct iscsi_r2t r2t;
 		int desired_xfer_len = MIN(sess->sess_params.first_burst_length,
 					   args->trans_len) - args->bytes_recv;
 

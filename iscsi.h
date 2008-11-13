@@ -136,7 +136,7 @@ enum {
 	ISCSI_TASK_CMD_TARGET_REASSIGN = 8
 };
 
-typedef struct iscsi_task_cmd_t {
+struct iscsi_task_cmd {
 	int32_t immediate;
 	uint8_t function;
 	uint64_t lun;
@@ -146,9 +146,9 @@ typedef struct iscsi_task_cmd_t {
 	uint32_t ExpStatSN;
 	uint32_t RefCmdSN;
 	uint32_t ExpDataSN;
-} iscsi_task_cmd_t;
+};
 
-int iscsi_task_cmd_decap(uint8_t * header, iscsi_task_cmd_t * cmd);
+int iscsi_task_cmd_decap(uint8_t * header, struct iscsi_task_cmd * cmd);
 
 /*
  * Task Response
@@ -168,22 +168,22 @@ enum {
 	ISCSI_TASK_QUAL_NOT_AUTHORIZED = 1
 };
 
-typedef struct iscsi_task_rsp_t {
+struct iscsi_task_rsp {
 	uint8_t response;
 	uint32_t length;
 	uint32_t tag;
 	uint32_t StatSN;
 	uint32_t ExpCmdSN;
 	uint32_t MaxCmdSN;
-} iscsi_task_rsp_t;
+};
 
-int iscsi_task_rsp_encap(uint8_t * header, iscsi_task_rsp_t * rsp);
+int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp * rsp);
 
 /*
  * NOP-Out
  */
 
-typedef struct iscsi_nop_out_args_t {
+struct iscsi_nop_out_args {
 	int32_t immediate;
 	uint32_t length;
 	uint64_t lun;
@@ -192,15 +192,15 @@ typedef struct iscsi_nop_out_args_t {
 	uint32_t CmdSN;
 	uint32_t ExpStatSN;
 	const uint8_t *data;
-} iscsi_nop_out_args_t;
+};
 
-int iscsi_nop_out_decap(uint8_t * header, iscsi_nop_out_args_t * cmd);
+int iscsi_nop_out_decap(uint8_t * header, struct iscsi_nop_out_args * cmd);
 
 /*
  * NOP-In
  */
 
-typedef struct iscsi_nop_in_args_t {
+struct iscsi_nop_in_args {
 	uint32_t length;
 	uint64_t lun;
 	uint32_t tag;
@@ -208,15 +208,15 @@ typedef struct iscsi_nop_in_args_t {
 	uint32_t StatSN;
 	uint32_t ExpCmdSN;
 	uint32_t MaxCmdSN;
-} iscsi_nop_in_args_t;
+};
 
-int iscsi_nop_in_encap(uint8_t * header, iscsi_nop_in_args_t * cmd);
+int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args * cmd);
 
 /*
  * Text Command
  */
 
-typedef struct iscsi_text_cmd_args_t {
+struct iscsi_text_cmd_args {
 	int32_t immediate;
 	int32_t final;
 	int32_t cont;
@@ -227,15 +227,15 @@ typedef struct iscsi_text_cmd_args_t {
 	uint32_t CmdSN;
 	uint32_t ExpStatSN;
 	char *text;
-} iscsi_text_cmd_args_t;
+};
 
-int iscsi_text_cmd_decap(uint8_t * header, iscsi_text_cmd_args_t * cmd);
+int iscsi_text_cmd_decap(uint8_t * header, struct iscsi_text_cmd_args * cmd);
 
 /*
  * Text Response
  */
 
-typedef struct iscsi_text_rsp_args_t {
+struct iscsi_text_rsp_args {
 	int32_t final;
 	int32_t cont;
 	uint32_t length;
@@ -245,15 +245,15 @@ typedef struct iscsi_text_rsp_args_t {
 	uint32_t StatSN;
 	uint32_t ExpCmdSN;
 	uint32_t MaxCmdSN;
-} iscsi_text_rsp_args_t;
+};
 
-int iscsi_text_rsp_encap(uint8_t * header, iscsi_text_rsp_args_t * rsp);
+int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args * rsp);
 
 /*
  * Login Command
  */
 
-typedef struct iscsi_login_cmd_args_t {
+struct iscsi_login_cmd_args {
 	int32_t transit;
 	int32_t cont;
 	uint8_t csg;
@@ -269,15 +269,15 @@ typedef struct iscsi_login_cmd_args_t {
 	uint32_t CmdSN;
 	uint32_t ExpStatSN;
 	char *text;
-} iscsi_login_cmd_args_t;
+};
 
-int iscsi_login_cmd_decap(uint8_t * header, iscsi_login_cmd_args_t * cmd);
+int iscsi_login_cmd_decap(uint8_t * header, struct iscsi_login_cmd_args * cmd);
 
 /*
  * Login Response
  */
 
-typedef struct iscsi_login_rsp_args_t {
+struct iscsi_login_rsp_args {
 	int32_t transit;
 	int32_t cont;
 	uint8_t csg;
@@ -294,30 +294,30 @@ typedef struct iscsi_login_rsp_args_t {
 	uint32_t MaxCmdSN;
 	uint8_t status_class;
 	uint8_t status_detail;
-} iscsi_login_rsp_args_t;
+};
 
-int iscsi_login_rsp_encap(uint8_t * header, iscsi_login_rsp_args_t * rsp);
+int iscsi_login_rsp_encap(uint8_t * header, struct iscsi_login_rsp_args * rsp);
 
 /*
  * Logout Command
  */
 
-typedef struct iscsi_logout_cmd_args_t {
+struct iscsi_logout_cmd_args {
 	int32_t immediate;
 	uint8_t reason;
 	uint32_t tag;
 	uint16_t cid;
 	uint32_t CmdSN;
 	uint32_t ExpStatSN;
-} iscsi_logout_cmd_args_t;
+};
 
-int iscsi_logout_cmd_decap(uint8_t * header, iscsi_logout_cmd_args_t * cmd);
+int iscsi_logout_cmd_decap(uint8_t * header, struct iscsi_logout_cmd_args * cmd);
 
 /*
  * Logout Response
  */
 
-typedef struct iscsi_logout_rsp_args_t {
+struct iscsi_logout_rsp_args {
 	uint8_t response;
 	uint32_t length;
 	uint32_t tag;
@@ -326,15 +326,15 @@ typedef struct iscsi_logout_rsp_args_t {
 	uint32_t MaxCmdSN;
 	uint16_t Time2Wait;
 	uint16_t Time2Retain;
-} iscsi_logout_rsp_args_t;
+};
 
-int iscsi_logout_rsp_encap(uint8_t * header, iscsi_logout_rsp_args_t * rsp);
+int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args * rsp);
 
 /*
  * SCSI Command
  */
 
-typedef struct iscsi_scsi_cmd_args_t {
+struct iscsi_scsi_cmd_args {
 	int32_t immediate;
 	int32_t final;
 	int32_t input;
@@ -358,15 +358,15 @@ typedef struct iscsi_scsi_cmd_args_t {
 	uint8_t status;
 	uint32_t bytes_sent;
 	uint32_t bytes_recv;
-} iscsi_scsi_cmd_args_t;
+};
 
-int iscsi_scsi_cmd_decap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd);
+int iscsi_scsi_cmd_decap(uint8_t * header, struct iscsi_scsi_cmd_args * cmd);
 
 /*
  * SCSI Response
  */
 
-typedef struct iscsi_scsi_rsp_args_t {
+struct iscsi_scsi_rsp {
 	int32_t bidi_overflow;
 	int32_t bidi_underflow;
 	int32_t overflow;
@@ -383,15 +383,15 @@ typedef struct iscsi_scsi_rsp_args_t {
 	uint32_t ExpDataSN;
 	uint32_t bidi_res_cnt;
 	uint32_t basic_res_cnt;
-} iscsi_scsi_rsp_t;
+};
 
-int iscsi_scsi_rsp_encap(uint8_t * header, iscsi_scsi_rsp_t * rsp);
+int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp * rsp);
 
 /*
  * Ready To Transfer (R2T)
  */
 
-typedef struct iscsi_r2t_args_t {
+struct iscsi_r2t {
 	uint32_t AHSlength;
 	uint64_t lun;
 	uint32_t tag;
@@ -402,15 +402,15 @@ typedef struct iscsi_r2t_args_t {
 	uint32_t R2TSN;
 	uint32_t offset;
 	uint32_t length;
-} iscsi_r2t_t;
+};
 
-int iscsi_r2t_encap(uint8_t * header, iscsi_r2t_t * cmd);
+int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t * cmd);
 
 /*
  * SCSI Write Data
  */
 
-typedef struct iscsi_write_data_args_t {
+struct iscsi_write_data {
 	int32_t final;
 	uint32_t length;
 	uint64_t lun;
@@ -419,15 +419,15 @@ typedef struct iscsi_write_data_args_t {
 	uint32_t ExpStatSN;
 	uint32_t DataSN;
 	uint32_t offset;
-} iscsi_write_data_t;
+};
 
-int iscsi_write_data_decap(uint8_t * header, iscsi_write_data_t * cmd);
+int iscsi_write_data_decap(uint8_t * header, struct iscsi_write_data * cmd);
 
 /*
  * SCSI Read Data
  */
 
-typedef struct iscsi_read_data_args_t {
+struct iscsi_read_data {
 	int32_t final;
 	int32_t ack;
 	int32_t overflow;
@@ -444,15 +444,15 @@ typedef struct iscsi_read_data_args_t {
 	uint32_t DataSN;
 	uint32_t offset;
 	uint32_t res_count;
-} iscsi_read_data_t;
+};
 
-int iscsi_read_data_encap(uint8_t * header, iscsi_read_data_t * cmd);
+int iscsi_read_data_encap(uint8_t * header, struct iscsi_read_data * cmd);
 
 /*
  * Reject
  */
 
-typedef struct iscsi_reject_args_t {
+struct iscsi_reject {
 	uint8_t reason;
 	uint32_t length;
 	uint32_t StatSN;
@@ -461,8 +461,8 @@ typedef struct iscsi_reject_args_t {
 	uint32_t DataSN;
 	char *header;
 
-} iscsi_reject_t;
+};
 
-int iscsi_reject_encap(uint8_t * header, iscsi_reject_t * cmd);
+int iscsi_reject_encap(uint8_t * header, struct iscsi_reject * cmd);
 
 #endif /* ISCSI_H */

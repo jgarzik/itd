@@ -60,7 +60,7 @@
  * Task Command
  */
 
-int iscsi_task_cmd_decap(uint8_t * header, iscsi_task_cmd_t * cmd)
+int iscsi_task_cmd_decap(uint8_t * header, struct iscsi_task_cmd * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_TASK_CMD,
@@ -113,7 +113,7 @@ int iscsi_task_cmd_decap(uint8_t * header, iscsi_task_cmd_t * cmd)
  * Task Response
  */
 
-int iscsi_task_rsp_encap(uint8_t * header, iscsi_task_rsp_t * rsp)
+int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp * rsp)
 {
 
 	uint32_t length;
@@ -150,7 +150,7 @@ int iscsi_task_rsp_encap(uint8_t * header, iscsi_task_rsp_t * rsp)
  * NOP-Out
  */
 
-int iscsi_nop_out_decap(uint8_t * header, iscsi_nop_out_args_t * cmd)
+int iscsi_nop_out_decap(uint8_t * header, struct iscsi_nop_out_args * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_NOP_OUT,
@@ -199,7 +199,7 @@ int iscsi_nop_out_decap(uint8_t * header, iscsi_nop_out_args_t * cmd)
  * NOP-In
  */
 
-int iscsi_nop_in_encap(uint8_t * header, iscsi_nop_in_args_t * cmd)
+int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args * cmd)
 {
 	uint32_t length;
 
@@ -238,7 +238,7 @@ int iscsi_nop_in_encap(uint8_t * header, iscsi_nop_in_args_t * cmd)
  * Text Command
  */
 
-int iscsi_text_cmd_decap(uint8_t * header, iscsi_text_cmd_args_t * cmd)
+int iscsi_text_cmd_decap(uint8_t * header, struct iscsi_text_cmd_args * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_TEXT_CMD,
@@ -298,7 +298,7 @@ int iscsi_text_cmd_decap(uint8_t * header, iscsi_text_cmd_args_t * cmd)
  * Text Response
  */
 
-int iscsi_text_rsp_encap(uint8_t * header, iscsi_text_rsp_args_t * rsp)
+int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args * rsp)
 {
 	uint32_t length;
 
@@ -345,7 +345,7 @@ int iscsi_text_rsp_encap(uint8_t * header, iscsi_text_rsp_args_t * rsp)
  * Login Command
  */
 
-int iscsi_login_cmd_decap(uint8_t * header, iscsi_login_cmd_args_t * cmd)
+int iscsi_login_cmd_decap(uint8_t * header, struct iscsi_login_cmd_args * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_LOGIN_CMD,
@@ -423,7 +423,7 @@ int iscsi_login_cmd_decap(uint8_t * header, iscsi_login_cmd_args_t * cmd)
  * Login Response
  */
 
-int iscsi_login_rsp_encap(uint8_t * header, iscsi_login_rsp_args_t * rsp)
+int iscsi_login_rsp_encap(uint8_t * header, struct iscsi_login_rsp_args * rsp)
 {
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
@@ -492,7 +492,7 @@ int iscsi_login_rsp_encap(uint8_t * header, iscsi_login_rsp_args_t * rsp)
  * Logout Command
  */
 
-int iscsi_logout_cmd_decap(uint8_t * header, iscsi_logout_cmd_args_t * cmd)
+int iscsi_logout_cmd_decap(uint8_t * header, struct iscsi_logout_cmd_args * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_LOGOUT_CMD,
@@ -549,7 +549,7 @@ int iscsi_logout_cmd_decap(uint8_t * header, iscsi_logout_cmd_args_t * cmd)
  * Logout Response
  */
 
-int iscsi_logout_rsp_encap(uint8_t * header, iscsi_logout_rsp_args_t * rsp)
+int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args * rsp)
 {
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Response:    %u\n",
@@ -590,7 +590,7 @@ int iscsi_logout_rsp_encap(uint8_t * header, iscsi_logout_rsp_args_t * rsp)
  * SCSI Command
  */
 
-int iscsi_scsi_cmd_decap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
+int iscsi_scsi_cmd_decap(uint8_t * header, struct iscsi_scsi_cmd_args * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_SCSI_CMD,
@@ -651,7 +651,7 @@ int iscsi_scsi_cmd_decap(uint8_t * header, iscsi_scsi_cmd_args_t * cmd)
  * SCSI Response
  */
 
-int iscsi_scsi_rsp_encap(uint8_t * header, iscsi_scsi_rsp_t * rsp)
+int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp * rsp)
 {
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
@@ -718,7 +718,7 @@ int iscsi_scsi_rsp_encap(uint8_t * header, iscsi_scsi_rsp_t * rsp)
  * Ready To Transfer
  */
 
-int iscsi_r2t_encap(uint8_t * header, iscsi_r2t_t * cmd)
+int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t * cmd)
 {
 	uint32_t length;
 
@@ -766,7 +766,7 @@ int iscsi_r2t_encap(uint8_t * header, iscsi_r2t_t * cmd)
  * SCSI Write Data
  */
 
-int iscsi_write_data_decap(uint8_t * header, iscsi_write_data_t * cmd)
+int iscsi_write_data_decap(uint8_t * header, struct iscsi_write_data * cmd)
 {
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_WRITE_DATA,
@@ -817,7 +817,7 @@ int iscsi_write_data_decap(uint8_t * header, iscsi_write_data_t * cmd)
  * SCSI Read Data
  */
 
-int iscsi_read_data_encap(uint8_t * header, iscsi_read_data_t * cmd)
+int iscsi_read_data_encap(uint8_t * header, struct iscsi_read_data * cmd)
 {
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
@@ -896,7 +896,7 @@ int iscsi_read_data_encap(uint8_t * header, iscsi_read_data_t * cmd)
  * Reject
  */
 
-int iscsi_reject_encap(uint8_t * header, iscsi_reject_t * cmd)
+int iscsi_reject_encap(uint8_t * header, struct iscsi_reject * cmd)
 {
 
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Reason:   %u\n",
