@@ -68,7 +68,7 @@ struct disc_device {
 	uint64_t len;		/* size of device */
 	uint32_t size;		/* size of device/extent array */
 	uint32_t c;		/* # of entries in device/extents */
-	struct disc_de *xv;		/* device/extent array */
+	struct disc_de *xv;	/* device/extent array */
 	int used;		/* device has been used in a device/target */
 };
 
@@ -81,7 +81,7 @@ enum {
 /* this struct describes an iscsi target's associated features */
 struct disc_target {
 	char *target;		/* target name */
-	struct disc_de de;		/* pointer to its device */
+	struct disc_de de;	/* pointer to its device */
 	uint16_t port;		/* port to listen on */
 	char *mask;		/* mask to export it to */
 	uint32_t flags;		/* any flags */
@@ -172,11 +172,11 @@ struct target_cmd {
 
 extern int target_init(struct globals *, targv_t *, char *);
 extern int target_shutdown(struct globals *);
-extern int target_accept(struct globals * gp, GConn * conn);
+extern int target_accept(struct globals *gp, GConn * conn);
 extern int target_sess_cleanup(struct target_session *sess);
-extern int target_transfer_data(struct target_session *, struct iscsi_scsi_cmd_args *,
-			 struct iovec *, int);
-
+extern int target_transfer_data(struct target_session *,
+				struct iscsi_scsi_cmd_args *, struct iovec *,
+				int);
 
 /* 
  * Interface from target to device:

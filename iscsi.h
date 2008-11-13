@@ -148,7 +148,7 @@ struct iscsi_task_cmd {
 	uint32_t ExpDataSN;
 };
 
-int iscsi_task_cmd_decap(uint8_t * header, struct iscsi_task_cmd * cmd);
+int iscsi_task_cmd_decap(uint8_t * header, struct iscsi_task_cmd *cmd);
 
 /*
  * Task Response
@@ -177,7 +177,7 @@ struct iscsi_task_rsp {
 	uint32_t MaxCmdSN;
 };
 
-int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp * rsp);
+int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp *rsp);
 
 /*
  * NOP-Out
@@ -194,7 +194,7 @@ struct iscsi_nop_out_args {
 	const uint8_t *data;
 };
 
-int iscsi_nop_out_decap(uint8_t * header, struct iscsi_nop_out_args * cmd);
+int iscsi_nop_out_decap(uint8_t * header, struct iscsi_nop_out_args *cmd);
 
 /*
  * NOP-In
@@ -210,7 +210,7 @@ struct iscsi_nop_in_args {
 	uint32_t MaxCmdSN;
 };
 
-int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args * cmd);
+int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args *cmd);
 
 /*
  * Text Command
@@ -229,7 +229,7 @@ struct iscsi_text_cmd_args {
 	char *text;
 };
 
-int iscsi_text_cmd_decap(uint8_t * header, struct iscsi_text_cmd_args * cmd);
+int iscsi_text_cmd_decap(uint8_t * header, struct iscsi_text_cmd_args *cmd);
 
 /*
  * Text Response
@@ -247,7 +247,7 @@ struct iscsi_text_rsp_args {
 	uint32_t MaxCmdSN;
 };
 
-int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args * rsp);
+int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args *rsp);
 
 /*
  * Login Command
@@ -271,7 +271,7 @@ struct iscsi_login_cmd_args {
 	char *text;
 };
 
-int iscsi_login_cmd_decap(uint8_t * header, struct iscsi_login_cmd_args * cmd);
+int iscsi_login_cmd_decap(uint8_t * header, struct iscsi_login_cmd_args *cmd);
 
 /*
  * Login Response
@@ -296,7 +296,7 @@ struct iscsi_login_rsp_args {
 	uint8_t status_detail;
 };
 
-int iscsi_login_rsp_encap(uint8_t * header, struct iscsi_login_rsp_args * rsp);
+int iscsi_login_rsp_encap(uint8_t * header, struct iscsi_login_rsp_args *rsp);
 
 /*
  * Logout Command
@@ -311,7 +311,7 @@ struct iscsi_logout_cmd_args {
 	uint32_t ExpStatSN;
 };
 
-int iscsi_logout_cmd_decap(uint8_t * header, struct iscsi_logout_cmd_args * cmd);
+int iscsi_logout_cmd_decap(uint8_t * header, struct iscsi_logout_cmd_args *cmd);
 
 /*
  * Logout Response
@@ -328,7 +328,7 @@ struct iscsi_logout_rsp_args {
 	uint16_t Time2Retain;
 };
 
-int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args * rsp);
+int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args *rsp);
 
 /*
  * SCSI Command
@@ -360,7 +360,7 @@ struct iscsi_scsi_cmd_args {
 	uint32_t bytes_recv;
 };
 
-int iscsi_scsi_cmd_decap(uint8_t * header, struct iscsi_scsi_cmd_args * cmd);
+int iscsi_scsi_cmd_decap(uint8_t * header, struct iscsi_scsi_cmd_args *cmd);
 
 /*
  * SCSI Response
@@ -385,7 +385,7 @@ struct iscsi_scsi_rsp {
 	uint32_t basic_res_cnt;
 };
 
-int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp * rsp);
+int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp *rsp);
 
 /*
  * Ready To Transfer (R2T)
@@ -404,7 +404,7 @@ struct iscsi_r2t {
 	uint32_t length;
 };
 
-int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t * cmd);
+int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t *cmd);
 
 /*
  * SCSI Write Data
@@ -421,7 +421,7 @@ struct iscsi_write_data {
 	uint32_t offset;
 };
 
-int iscsi_write_data_decap(uint8_t * header, struct iscsi_write_data * cmd);
+int iscsi_write_data_decap(uint8_t * header, struct iscsi_write_data *cmd);
 
 /*
  * SCSI Read Data
@@ -446,7 +446,7 @@ struct iscsi_read_data {
 	uint32_t res_count;
 };
 
-int iscsi_read_data_encap(uint8_t * header, struct iscsi_read_data * cmd);
+int iscsi_read_data_encap(uint8_t * header, struct iscsi_read_data *cmd);
 
 /*
  * Reject
@@ -463,6 +463,6 @@ struct iscsi_reject {
 
 };
 
-int iscsi_reject_encap(uint8_t * header, struct iscsi_reject * cmd);
+int iscsi_reject_encap(uint8_t * header, struct iscsi_reject *cmd);
 
 #endif /* ISCSI_H */

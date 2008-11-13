@@ -102,7 +102,8 @@ static GList *session_list;
  * Private Functions *
  *********************/
 
-static int reject_t(struct target_session * sess, uint8_t * header, uint8_t reason)
+static int reject_t(struct target_session *sess, uint8_t * header,
+		    uint8_t reason)
 {
 	struct iscsi_reject reject;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
@@ -123,7 +124,7 @@ static int reject_t(struct target_session * sess, uint8_t * header, uint8_t reas
 	if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
 					    ISCSI_HEADER_LEN, header,
 					    ISCSI_HEADER_LEN, 0) !=
-					    	2 * ISCSI_HEADER_LEN) {
+	    2 * ISCSI_HEADER_LEN) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_sock_send_header_and_data() failed\n");
 		return -1;
@@ -131,7 +132,7 @@ static int reject_t(struct target_session * sess, uint8_t * header, uint8_t reas
 	return 0;
 }
 
-static int scsi_command_t(struct target_session * sess, uint8_t * header)
+static int scsi_command_t(struct target_session *sess, uint8_t * header)
 {
 	struct target_cmd cmd;
 	struct iscsi_scsi_cmd_args scsi_cmd;
@@ -327,18 +328,17 @@ static int scsi_command_t(struct target_session * sess, uint8_t * header)
 		sg_len = sg_len_orig;
 
 		offset_inc =
-		    (sess->sess_params.max_data_seg_length) ? sess->
-		    sess_params.max_data_seg_length : trans_len;
+		    (sess->sess_params.max_data_seg_length) ? sess->sess_params.
+		    max_data_seg_length : trans_len;
 
 		for (offset = 0; offset < trans_len; offset += offset_inc) {
 			(void)memset(&data, 0x0, sizeof(data));
 
 			data.length =
-			    (sess->
-			     sess_params.max_data_seg_length) ? MIN(trans_len -
-								    offset,
-								    sess->
-								    sess_params.max_data_seg_length)
+			    (sess->sess_params.
+			     max_data_seg_length) ? MIN(trans_len - offset,
+							sess->sess_params.
+							max_data_seg_length)
 			    : trans_len - offset;
 			if (data.length != trans_len) {
 				if (!fragment_flag) {
@@ -457,9 +457,11 @@ response:
 			AHS_CLEANUP;
 			return -1;
 		}
-		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
-				ISCSI_HEADER_LEN, scsi_cmd.send_data,
-				scsi_rsp.length, scsi_cmd.send_sg_len)
+		if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
+						    ISCSI_HEADER_LEN,
+						    scsi_cmd.send_data,
+						    scsi_rsp.length,
+						    scsi_cmd.send_sg_len)
 		    != ISCSI_HEADER_LEN + scsi_rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
@@ -503,7 +505,7 @@ response:
 	return 0;
 }
 
-static int task_command_t(struct target_session * sess, uint8_t * header)
+static int task_command_t(struct target_session *sess, uint8_t * header)
 {
 	struct iscsi_task_cmd cmd;
 	struct iscsi_task_rsp rsp;
@@ -574,7 +576,7 @@ static int task_command_t(struct target_session * sess, uint8_t * header)
 	return 0;
 }
 
-static int nop_out_t(struct target_session * sess, uint8_t * header)
+static int nop_out_t(struct target_session *sess, uint8_t * header)
 {
 	struct iscsi_nop_out_args nop_out;
 
@@ -619,9 +621,11 @@ static int nop_out_t(struct target_session * sess, uint8_t * header)
 					  "iscsi_nop_in_encap() failed\n");
 			return -1;
 		}
-		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
-			ISCSI_HEADER_LEN, sess->buff, nop_in.length, 0) !=
-					ISCSI_HEADER_LEN + nop_in.length) {
+		if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
+						    ISCSI_HEADER_LEN,
+						    sess->buff, nop_in.length,
+						    0) !=
+		    ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
 			return -1;
@@ -637,7 +641,7 @@ static int nop_out_t(struct target_session * sess, uint8_t * header)
  * text_command_t
  */
 
-static int text_command_t(struct target_session * sess, uint8_t * header)
+static int text_command_t(struct target_session *sess, uint8_t * header)
 {
 	struct iscsi_text_cmd_args text_cmd;
 	struct iscsi_text_rsp_args text_rsp;
@@ -723,18 +727,16 @@ static int text_command_t(struct target_session * sess, uint8_t * header)
 					if (sess->address_family == ISCSI_IPv6
 					    || (sess->address_family ==
 						ISCSI_IPv4
-						&& allow_netmask(sess->
-								 globals->tv->
-								 v[i].mask,
-								 sess->initiator)))
-					{
+						&& allow_netmask(sess->globals->
+								 tv->v[i].mask,
+								 sess->
+								 initiator))) {
 						(void)snprintf(buf, sizeof(buf),
 							       "%s:%s",
-							       sess->
-							       globals->targetname,
-							       sess->
-							       globals->tv->
-							       v[i].target);
+							       sess->globals->
+							       targetname,
+							       sess->globals->
+							       tv->v[i].target);
 						PARAM_TEXT_ADD(sess->params,
 							       "TargetName",
 							       buf, text_out,
@@ -742,8 +744,8 @@ static int text_command_t(struct target_session * sess, uint8_t * header)
 							       0, TC_ERROR);
 						PARAM_TEXT_ADD(sess->params,
 							       "TargetAddress",
-							       sess->
-							       globals->targetaddress,
+							       sess->globals->
+							       targetaddress,
 							       text_out,
 							       &len_out, 2048,
 							       0, TC_ERROR);
@@ -752,8 +754,8 @@ static int text_command_t(struct target_session * sess, uint8_t * header)
 						syslog(LOG_INFO,
 						       "WARNING: attempt to discover targets from %s (not allowed by %s) has been rejected",
 						       sess->initiator,
-						       sess->globals->tv->
-						       v[0].mask);
+						       sess->globals->tv->v[0].
+						       mask);
 #endif
 					}
 				}
@@ -799,7 +801,7 @@ static int text_command_t(struct target_session * sess, uint8_t * header)
 }
 
 /* given a target's iqn, find the relevant target that we're exporting */
-static int find_target_iqn(struct target_session * sess)
+static int find_target_iqn(struct target_session *sess)
 {
 	char buf[BUFSIZ];
 	int i;
@@ -817,7 +819,7 @@ static int find_target_iqn(struct target_session * sess)
 }
 
 /* given a tsih, find the relevant target that we're exporting */
-static int find_target_tsih(struct globals * globals, int tsih)
+static int find_target_tsih(struct globals *globals, int tsih)
 {
 	int i;
 
@@ -833,7 +835,7 @@ static int find_target_tsih(struct globals * globals, int tsih)
  * login_command_t() handles login requests and replies.
  */
 
-static int login_command_t(struct target_session * sess, uint8_t * header)
+static int login_command_t(struct target_session *sess, uint8_t * header)
 {
 	struct iscsi_login_cmd_args cmd;
 	struct iscsi_login_rsp_args rsp;
@@ -953,8 +955,7 @@ static int login_command_t(struct target_session * sess, uint8_t * header)
 		if (len_out) {
 			PARAM_TEXT_PARSE(sess->params, &sess->sess_params.cred,
 					 text_out, len_out, NULL, NULL, 2048, 1,
-					 LC_ERROR;
-			    );
+					 LC_ERROR;);
 		}
 	}
 	if (!sess->LoginStarted) {
@@ -1074,9 +1075,11 @@ response:
 	}
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sending login response\n");
-	if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
-		ISCSI_HEADER_LEN, text_out, rsp.length, 0) !=
-			ISCSI_HEADER_LEN + rsp.length) {
+	if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
+					    ISCSI_HEADER_LEN, text_out,
+					    rsp.length,
+					    0) !=
+	    ISCSI_HEADER_LEN + rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_sock_send_header_and_data() failed\n");
 		LC_CLEANUP;
@@ -1118,7 +1121,7 @@ response:
 	return 0;
 }
 
-static int logout_command_t(struct target_session * sess, uint8_t * header)
+static int logout_command_t(struct target_session *sess, uint8_t * header)
 {
 	struct iscsi_logout_cmd_args cmd;
 	struct iscsi_logout_rsp_args rsp;
@@ -1188,7 +1191,7 @@ static int logout_command_t(struct target_session * sess, uint8_t * header)
 	return 0;
 }
 
-static int verify_cmd_t(struct target_session * sess, uint8_t * header)
+static int verify_cmd_t(struct target_session *sess, uint8_t * header)
 {
 	int op = ISCSI_OPCODE(header);
 
@@ -1220,9 +1223,10 @@ static int verify_cmd_t(struct target_session * sess, uint8_t * header)
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending login response\n");
-		if (iscsi_sock_send_header_and_data (sess->conn, rsp_header,
-			ISCSI_HEADER_LEN, NULL, 0, 0) !=
-				ISCSI_HEADER_LEN + rsp.length) {
+		if (iscsi_sock_send_header_and_data(sess->conn, rsp_header,
+						    ISCSI_HEADER_LEN, NULL, 0,
+						    0) !=
+		    ISCSI_HEADER_LEN + rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_sock_send_header_and_data() failed\n");
 			return -1;
@@ -1238,7 +1242,7 @@ static int verify_cmd_t(struct target_session * sess, uint8_t * header)
  * this function looks at the opcode in the received header for the session,
  * and does a switch on the opcode to call the required function.
  */
-static int execute_t(struct target_session * sess, uint8_t * header)
+static int execute_t(struct target_session *sess, uint8_t * header)
 {
 	int op = ISCSI_OPCODE(header);
 
@@ -1371,8 +1375,9 @@ read_data_pdu(struct target_session *sess,
 }
 
 int
-target_transfer_data(struct target_session * sess, struct iscsi_scsi_cmd_args * args,
-		     struct iovec *sg, int sg_len)
+target_transfer_data(struct target_session *sess,
+		     struct iscsi_scsi_cmd_args *args, struct iovec *sg,
+		     int sg_len)
 {
 	struct iscsi_write_data data;
 	struct iovec *iov, *iov_ptr = NULL;
@@ -1454,9 +1459,8 @@ target_transfer_data(struct target_session * sess, struct iscsi_scsi_cmd_args * 
 			if (!r2t_flag && (sess->sess_params.initial_r2t ||
 					  (sess->sess_params.first_burst_length
 					   && (args->bytes_recv >=
-					       sess->
-					       sess_params.first_burst_length))))
-			{
+					       sess->sess_params.
+					       first_burst_length)))) {
 				uint8_t header[ISCSI_HEADER_LEN];
 
 				desired_xfer_len =
@@ -1551,8 +1555,8 @@ target_transfer_data(struct target_session * sess, struct iscsi_scsi_cmd_args * 
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "Received unsolicited data (%d) more than first_burst_length (%d)\n",
 						  args->bytes_recv,
-						  sess->
-						  sess_params.first_burst_length);
+						  sess->sess_params.
+						  first_burst_length);
 				args->status = 0x02;
 				TTD_CLEANUP;
 				return -1;
@@ -1592,12 +1596,12 @@ target_transfer_data(struct target_session * sess, struct iscsi_scsi_cmd_args * 
  * Public Functions *
  ********************/
 
-int target_init(struct globals * gp, targv_t * tv, char *TargetName)
+int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 {
 	int i;
 
-	NEWARRAY(struct target_session, g_session, gp->max_sessions, "target_init",
-		 return -1);
+	NEWARRAY(struct target_session, g_session, gp->max_sessions,
+		 "target_init", return -1);
 	(void)strlcpy(gp->targetname, TargetName, sizeof(gp->targetname));
 	if (gp->state == TARGET_INITIALIZING || gp->state == TARGET_INITIALIZED) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -1648,7 +1652,7 @@ int target_sess_cleanup(struct target_session *sess)
 	return 0;
 }
 
-int target_shutdown(struct globals * gp)
+int target_shutdown(struct globals *gp)
 {
 	struct target_session *sess;
 	GList *tmp;
@@ -1692,7 +1696,7 @@ int target_shutdown(struct globals * gp)
 	return 0;
 }
 
-static void target_read_evt(struct target_session *sess, GConnEvent *evt)
+static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 {
 	uint8_t *buf;
 	uint32_t v;
@@ -1706,7 +1710,7 @@ static void target_read_evt(struct target_session *sess, GConnEvent *evt)
 		v = sess->ahs_len = buf[4];
 		buf[4] = 0;
 
-		v += ntohl(*((uint32_t *) (void *)(buf + 4))); /* data len */
+		v += ntohl(*((uint32_t *) (void *)(buf + 4)));	/* data len */
 
 		if (!v) {	/* PDU is complete, nothing else to read */
 			sess->buff = NULL;
@@ -1718,7 +1722,7 @@ static void target_read_evt(struct target_session *sess, GConnEvent *evt)
 		gnet_conn_readn(sess->conn, v);
 		sess->readst = srs_ahs_data;
 		break;
-		
+
 	case srs_ahs_data:
 		if (sess->ahs_len)
 			sess->ahs = (uint8_t *) evt->buffer;
@@ -1762,7 +1766,7 @@ static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 	}
 }
 
-int target_accept(struct globals * gp, GConn * conn)
+int target_accept(struct globals *gp, GConn * conn)
 {
 	struct target_session *sess;
 	char remote[1024];
@@ -1909,20 +1913,6 @@ int target_accept(struct globals * gp, GConn * conn)
 
 	gnet_conn_readn(conn, ISCSI_HEADER_LEN);
 	sess->readst = srs_basic_hdr;
-
-#if 0
-	while (sess->globals->state != TARGET_SHUT_DOWN) {
-
-		if (execute_t(sess, header) != 0) {
-
-		if (ISCSI_OPCODE(header) == ISCSI_LOGOUT_CMD) {
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "session %d: logout received, ending session\n",
-			    sess->id);
-			break;
-		}
-	}
-#endif
 
 	return 0;
 }

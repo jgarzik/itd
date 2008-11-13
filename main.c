@@ -16,17 +16,17 @@ static struct globals gbls = {
 	.port = 3260,
 };
 
-int device_init(struct globals * a, targv_t * b, struct disc_target * c)
+int device_init(struct globals *a, targv_t * b, struct disc_target *c)
 {
 	return -1;
 }
 
-int device_command(struct target_session * e, struct target_cmd * d)
+int device_command(struct target_session *e, struct target_cmd *d)
 {
 	return -1;
 }
 
-int device_shutdown(struct target_session * f)
+int device_shutdown(struct target_session *f)
 {
 	return -1;
 }

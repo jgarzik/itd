@@ -131,8 +131,8 @@ extern void iscsi_print_buffer(uint8_t *, const size_t);
 
 extern int iscsi_sock_msg(int, int, unsigned, void *, int);
 extern int iscsi_sock_send_header_and_data(GConn *,
-				    const void *, unsigned,
-				    const void *, unsigned, int);
+					   const void *, unsigned,
+					   const void *, unsigned, int);
 extern int modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 extern void cdb2lba(uint32_t *, uint16_t *, uint8_t *);

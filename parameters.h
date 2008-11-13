@@ -104,7 +104,7 @@ struct iscsi_parameter {
 	int type;		/* type of parameter */
 	char valid[ISCSI_PARAM_MAX_LEN];	/* list of valid values */
 	char dflt[ISCSI_PARAM_MAX_LEN];	/* default value */
-	struct iscsi_parameter_item	*value_l;	/* value list */
+	struct iscsi_parameter_item *value_l;	/* value list */
 	char offer_rx[ISCSI_PARAM_MAX_LEN];	/* outgoing offer */
 	char offer_tx[ISCSI_PARAM_MAX_LEN];	/* incoming offer */
 	char answer_tx[ISCSI_PARAM_MAX_LEN];	/* outgoing answer */
@@ -124,8 +124,8 @@ int param_list_print(struct iscsi_parameter *);
 int param_list_destroy(struct iscsi_parameter *);
 int param_text_add(struct iscsi_parameter *, const char *, const char *, char *,
 		   int *, int, int);
-int param_text_parse(struct iscsi_parameter *, struct iscsi_cred *, char *, int, char *,
-		     int *, int, int);
+int param_text_parse(struct iscsi_parameter *, struct iscsi_cred *, char *, int,
+		     char *, int *, int, int);
 int param_text_print(char *, uint32_t);
 int param_num_vals(struct iscsi_parameter *, char *);
 int param_val_reset(struct iscsi_parameter *, const char *);
@@ -138,7 +138,8 @@ int driver_atoi(const char *);
 int param_atoi(struct iscsi_parameter *, const char *);
 int param_equiv(struct iscsi_parameter *, const char *, const char *);
 int param_commit(struct iscsi_parameter *);
-void set_session_parameters(struct iscsi_parameter *, struct iscsi_sess_param *);
+void set_session_parameters(struct iscsi_parameter *,
+			    struct iscsi_sess_param *);
 
 /*
  * Macros

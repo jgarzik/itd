@@ -171,7 +171,7 @@ void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 #endif
 }
 
-void iscsi_print_buffer(uint8_t *buf, const size_t len)
+void iscsi_print_buffer(uint8_t * buf, const size_t len)
 {
 #ifdef CONFIG_ISCSI_DEBUG
 	int i;
@@ -434,14 +434,14 @@ int iscsi_sock_msg(int sock, int xmit, unsigned len, void *data, int iovc)
  */
 
 int
-iscsi_sock_send_header_and_data(GConn *conn,
+iscsi_sock_send_header_and_data(GConn * conn,
 				const void *header, unsigned header_len,
 				const void *data, unsigned data_len, int iovc)
 {
-	gnet_conn_write(conn, (void *) header, header_len);
+	gnet_conn_write(conn, (void *)header, header_len);
 
 	if (!iovc)
-		gnet_conn_write(conn, (void *) data, data_len);
+		gnet_conn_write(conn, (void *)data, data_len);
 
 	else {
 		struct iovec iov[ISCSI_MAX_IOVECS];
