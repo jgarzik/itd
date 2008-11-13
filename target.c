@@ -112,6 +112,17 @@ static GList   *session_list;
  * Private Functions *
  *********************/
 
+static char *get_iqn(struct target_session *sess, int t, char *buf, size_t size)
+{
+	if (sess->globals->tv->v[t].iqn != NULL) {
+		(void) strlcpy(buf, sess->globals->tv->v[t].iqn, size);
+		return buf;
+	}
+	(void) snprintf(buf, size, "%s:%s", sess->globals->targetname,
+			sess->globals->tv->v[t].target);
+	return buf;
+}
+
 static int reject_t(struct target_session *sess, uint8_t * header,
 		    uint8_t reason)
 {
@@ -742,12 +753,8 @@ static int text_command_t(struct target_session *sess, uint8_t * header)
 								 v[i].mask,
 								 sess->initiator)))
 					{
-						snprintf(buf, sizeof(buf),
-							 "%s:%s",
-							 sess->
-							 globals->targetname,
-							 sess->globals->tv->
-							 v[i].target);
+						get_iqn(sess, i, buf,
+							sizeof(buf));
 						PARAM_TEXT_ADD(sess->params,
 							       "TargetName",
 							       buf, text_out,
@@ -814,31 +821,28 @@ static int text_command_t(struct target_session *sess, uint8_t * header)
 /* given a target's iqn, find the relevant target that we're exporting */
 static int find_target_iqn(struct target_session *sess)
 {
-	char            buf[BUFSIZ];
-	int             i;
+	char buf[BUFSIZ];
+	int i;
 
-	for (i = 0; i < sess->globals->tv->c; i++) {
-		snprintf(buf, sizeof(buf), "%s:%s",
-			 sess->globals->targetname,
-			 sess->globals->tv->v[i].target);
-		if (param_equiv(sess->params, "TargetName", buf)) {
+	for (i = 0; i < sess->globals->tv->c; i++)
+		if (param_equiv(sess->params, "TargetName",
+				get_iqn(sess, i, buf, sizeof(buf)))) {
 			sess->d = i;
 			return i;
 		}
-	}
+
 	return -1;
 }
 
 /* given a tsih, find the relevant target that we're exporting */
 static int find_target_tsih(struct globals *globals, int tsih)
 {
-	int             i;
+	int i;
 
-	for (i = 0; i < globals->tv->c; i++) {
-		if (globals->tv->v[i].tsih == tsih) {
+	for (i = 0; i < globals->tv->c; i++)
+		if (globals->tv->v[i].tsih == tsih)
 			return i;
-		}
-	}
+
 	return -1;
 }
 

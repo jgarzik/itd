@@ -96,6 +96,7 @@ struct disc_target {
 	char           *mask;	/* mask to export it to */
 	uint32_t        flags;	/* any flags */
 	uint16_t        tsih;	/* target session identifying handle */
+	char		*iqn;	/* assigned iqn - can be NULL */
 };
 
 DEFINE_ARRAY(targv_t, struct disc_target);
