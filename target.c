@@ -141,7 +141,7 @@ static int scsi_command_t(struct target_session *sess, uint8_t * header)
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
 	uint32_t DataSN = 0;
 
-	(void)memset(&scsi_cmd, 0x0, sizeof(scsi_cmd));
+	memset(&scsi_cmd, 0x0, sizeof(scsi_cmd));
 	if (iscsi_scsi_cmd_decap(header, &scsi_cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_scsi_cmd_decap() failed\n");
@@ -328,17 +328,18 @@ static int scsi_command_t(struct target_session *sess, uint8_t * header)
 		sg_len = sg_len_orig;
 
 		offset_inc =
-		    (sess->sess_params.max_data_seg_length) ? sess->sess_params.
-		    max_data_seg_length : trans_len;
+		    (sess->sess_params.max_data_seg_length) ? sess->
+		    sess_params.max_data_seg_length : trans_len;
 
 		for (offset = 0; offset < trans_len; offset += offset_inc) {
-			(void)memset(&data, 0x0, sizeof(data));
+			memset(&data, 0x0, sizeof(data));
 
 			data.length =
-			    (sess->sess_params.
-			     max_data_seg_length) ? MIN(trans_len - offset,
-							sess->sess_params.
-							max_data_seg_length)
+			    (sess->
+			     sess_params.max_data_seg_length) ? MIN(trans_len -
+								    offset,
+								    sess->
+								    sess_params.max_data_seg_length)
 			    : trans_len - offset;
 			if (data.length != trans_len) {
 				if (!fragment_flag) {
@@ -356,9 +357,8 @@ static int scsi_command_t(struct target_session *sess, uint8_t * header)
 				}
 				sg = sg_new;
 				sg_len = sg_len_orig;
-				(void)memcpy(sg, sg_orig,
-					     sizeof(struct iovec) *
-					     sg_len_orig);
+				memcpy(sg, sg_orig,
+				       sizeof(struct iovec) * sg_len_orig);
 				if (modify_iov
 				    (&sg, &sg_len, offset, data.length) != 0) {
 					iscsi_trace_error(__FILE__, __LINE__,
@@ -437,7 +437,7 @@ response:
 	if (!sess->UsePhaseCollapsedRead || !scsi_cmd.length || scsi_cmd.status) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending SCSI response PDU\n");
-		(void)memset(&scsi_rsp, 0x0, sizeof(scsi_rsp));
+		memset(&scsi_rsp, 0x0, sizeof(scsi_rsp));
 		scsi_rsp.length = scsi_cmd.status ? scsi_cmd.length : 0;
 		scsi_rsp.tag = scsi_cmd.tag;
 		/* If r2t send, then the StatSN is already incremented */
@@ -526,7 +526,7 @@ static int task_command_t(struct target_session *sess, uint8_t * header)
 	}
 	sess->MaxCmdSN++;
 
-	(void)memset(&rsp, 0x0, sizeof(rsp));
+	memset(&rsp, 0x0, sizeof(rsp));
 	rsp.response = ISCSI_TASK_RSP_FUNCTION_COMPLETE;
 
 	switch (cmd.function) {
@@ -607,7 +607,7 @@ static int nop_out_t(struct target_session *sess, uint8_t * header)
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending %d bytes ping response\n", nop_out.length);
-		(void)memset(&nop_in, 0x0, sizeof(&nop_in));
+		memset(&nop_in, 0x0, sizeof(&nop_in));
 		nop_in.length = nop_out.length;
 		nop_in.lun = nop_out.lun;
 		nop_in.tag = nop_out.tag;
@@ -727,16 +727,17 @@ static int text_command_t(struct target_session *sess, uint8_t * header)
 					if (sess->address_family == ISCSI_IPv6
 					    || (sess->address_family ==
 						ISCSI_IPv4
-						&& allow_netmask(sess->globals->
-								 tv->v[i].mask,
-								 sess->
-								 initiator))) {
-						(void)snprintf(buf, sizeof(buf),
-							       "%s:%s",
-							       sess->globals->
-							       targetname,
-							       sess->globals->
-							       tv->v[i].target);
+						&& allow_netmask(sess->
+								 globals->tv->
+								 v[i].mask,
+								 sess->initiator)))
+					{
+						snprintf(buf, sizeof(buf),
+							 "%s:%s",
+							 sess->
+							 globals->targetname,
+							 sess->globals->tv->
+							 v[i].target);
 						PARAM_TEXT_ADD(sess->params,
 							       "TargetName",
 							       buf, text_out,
@@ -744,8 +745,8 @@ static int text_command_t(struct target_session *sess, uint8_t * header)
 							       0, TC_ERROR);
 						PARAM_TEXT_ADD(sess->params,
 							       "TargetAddress",
-							       sess->globals->
-							       targetaddress,
+							       sess->
+							       globals->targetaddress,
 							       text_out,
 							       &len_out, 2048,
 							       0, TC_ERROR);
@@ -754,8 +755,8 @@ static int text_command_t(struct target_session *sess, uint8_t * header)
 						syslog(LOG_INFO,
 						       "WARNING: attempt to discover targets from %s (not allowed by %s) has been rejected",
 						       sess->initiator,
-						       sess->globals->tv->v[0].
-						       mask);
+						       sess->globals->tv->
+						       v[0].mask);
 #endif
 					}
 				}
@@ -807,9 +808,9 @@ static int find_target_iqn(struct target_session *sess)
 	int i;
 
 	for (i = 0; i < sess->globals->tv->c; i++) {
-		(void)snprintf(buf, sizeof(buf), "%s:%s",
-			       sess->globals->targetname,
-			       sess->globals->tv->v[i].target);
+		snprintf(buf, sizeof(buf), "%s:%s",
+			 sess->globals->targetname,
+			 sess->globals->tv->v[i].target);
 		if (param_equiv(sess->params, "TargetName", buf)) {
 			sess->d = i;
 			return i;
@@ -859,7 +860,7 @@ static int login_command_t(struct target_session *sess, uint8_t * header)
 	return -1;							\
 }
 
-	(void)memset(&rsp, 0x0, sizeof(rsp));
+	memset(&rsp, 0x0, sizeof(rsp));
 	rsp.status_class = ISCSI_LOGIN_STATUS_INITIATOR_ERROR;
 
 	/* Get login args & check preconditions */
@@ -955,7 +956,8 @@ static int login_command_t(struct target_session *sess, uint8_t * header)
 		if (len_out) {
 			PARAM_TEXT_PARSE(sess->params, &sess->sess_params.cred,
 					 text_out, len_out, NULL, NULL, 2048, 1,
-					 LC_ERROR;);
+					 LC_ERROR;
+			    );
 		}
 	}
 	if (!sess->LoginStarted) {
@@ -1033,8 +1035,8 @@ static int login_command_t(struct target_session *sess, uint8_t * header)
 
 		sess->IsLoggedIn = 1;
 		if (!param_equiv(sess->params, "SessionType", "Discovery")) {
-			(void)strlcpy(param_val(sess->params, "MaxConnections"),
-				      "1", 2);
+			strlcpy(param_val(sess->params, "MaxConnections"), "1",
+				2);
 		}
 		set_session_parameters(sess->params, &sess->sess_params);
 	} else {
@@ -1094,13 +1096,12 @@ response:
 	if (cmd.transit && cmd.nsg == ISCSI_LOGIN_STAGE_FULL_FEATURE) {
 
 		/* log information to stdout */
-		(void)snprintf(logbuf, sizeof(logbuf),
-			       "> iSCSI %s login  successful from %s on %s disk %d, ISID %"
-			       PRIu64 ", TSIH %u", param_val(sess->params,
-							     "SessionType"),
-			       param_val(sess->params, "InitiatorName"),
-			       sess->initiator, sess->d, sess->isid,
-			       sess->tsih);
+		snprintf(logbuf, sizeof(logbuf),
+			 "> iSCSI %s login  successful from %s on %s disk %d, ISID %"
+			 PRIu64 ", TSIH %u", param_val(sess->params,
+						       "SessionType"),
+			 param_val(sess->params, "InitiatorName"),
+			 sess->initiator, sess->d, sess->isid, sess->tsih);
 		printf("%s\n", logbuf);
 #ifdef HAVE_SYSLOG_H
 		/* log information to syslog */
@@ -1129,7 +1130,7 @@ static int logout_command_t(struct target_session *sess, uint8_t * header)
 	char logbuf[BUFSIZ];
 	int i;
 
-	(void)memset(&rsp, 0x0, sizeof(rsp));
+	memset(&rsp, 0x0, sizeof(rsp));
 	if (iscsi_logout_cmd_decap(header, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_logout_cmd_decap() failed\n");
@@ -1160,12 +1161,12 @@ static int logout_command_t(struct target_session *sess, uint8_t * header)
 		    "sent logout response OK\n");
 
 	/* log information to stdout */
-	(void)snprintf(logbuf, sizeof(logbuf),
-		       "< iSCSI %s logout successful from %s on %s disk %d, ISID %"
-		       PRIu64 ", TSIH %u", param_val(sess->params,
-						     "SessionType"),
-		       param_val(sess->params, "InitiatorName"),
-		       sess->initiator, sess->d, sess->isid, sess->tsih);
+	snprintf(logbuf, sizeof(logbuf),
+		 "< iSCSI %s logout successful from %s on %s disk %d, ISID %"
+		 PRIu64 ", TSIH %u", param_val(sess->params,
+					       "SessionType"),
+		 param_val(sess->params, "InitiatorName"),
+		 sess->initiator, sess->d, sess->isid, sess->tsih);
 	printf("%s\n", logbuf);
 #ifdef HAVE_SYSLOG
 	/* log information to syslog */
@@ -1210,7 +1211,7 @@ static int verify_cmd_t(struct target_session *sess, uint8_t * header)
 				  "session %d: iSCSI op %#x attempted before FULL FEATURE\n",
 				  sess->id, op);
 		/* Create Login Reject response */
-		(void)memset(&rsp, 0x0, sizeof(rsp));
+		memset(&rsp, 0x0, sizeof(rsp));
 		rsp.status_class = ISCSI_LOGIN_STATUS_INITIATOR_ERROR;
 		rsp.status_detail = ISCSI_LOGIN_DETAIL_NOT_LOGGED_IN;
 		rsp.version_max = ISCSI_VERSION;
@@ -1401,7 +1402,7 @@ target_transfer_data(struct target_session *sess,
 		return -1;
 	}
 	iov = iov_ptr;
-	(void)memcpy(iov, sg, sizeof(struct iovec) * sg_len);
+	memcpy(iov, sg, sizeof(struct iovec) * sg_len);
 	iov_len = sg_len;
 
 	/*
@@ -1448,7 +1449,7 @@ target_transfer_data(struct target_session *sess,
 		int desired_xfer_len = MIN(sess->sess_params.first_burst_length,
 					   args->trans_len) - args->bytes_recv;
 
-		(void)memset(&r2t, 0x0, sizeof(r2t));
+		memset(&r2t, 0x0, sizeof(r2t));
 		do {
 
 			/*
@@ -1459,8 +1460,9 @@ target_transfer_data(struct target_session *sess,
 			if (!r2t_flag && (sess->sess_params.initial_r2t ||
 					  (sess->sess_params.first_burst_length
 					   && (args->bytes_recv >=
-					       sess->sess_params.
-					       first_burst_length)))) {
+					       sess->
+					       sess_params.first_burst_length))))
+			{
 				uint8_t header[ISCSI_HEADER_LEN];
 
 				desired_xfer_len =
@@ -1525,7 +1527,7 @@ target_transfer_data(struct target_session *sess,
 			/* Modify iov with offset and length. */
 
 			iov = iov_ptr;
-			(void)memcpy(iov, sg, sizeof(struct iovec) * sg_len);
+			memcpy(iov, sg, sizeof(struct iovec) * sg_len);
 			iov_len = sg_len;
 			if (modify_iov(&iov, &iov_len, data.offset, data.length)
 			    != 0) {
@@ -1555,8 +1557,8 @@ target_transfer_data(struct target_session *sess,
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "Received unsolicited data (%d) more than first_burst_length (%d)\n",
 						  args->bytes_recv,
-						  sess->sess_params.
-						  first_burst_length);
+						  sess->
+						  sess_params.first_burst_length);
 				args->status = 0x02;
 				TTD_CLEANUP;
 				return -1;
@@ -1602,7 +1604,7 @@ int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 
 	NEWARRAY(struct target_session, g_session, gp->max_sessions,
 		 "target_init", return -1);
-	(void)strlcpy(gp->targetname, TargetName, sizeof(gp->targetname));
+	strlcpy(gp->targetname, TargetName, sizeof(gp->targetname));
 	if (gp->state == TARGET_INITIALIZING || gp->state == TARGET_INITIALIZED) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "duplicate target initialization attempted\n");

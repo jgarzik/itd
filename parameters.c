@@ -564,15 +564,16 @@ param_parse_security(struct iscsi_parameter *head,
 	} else if (strcmp(param_in->key, "CHAP_I") == 0) {
 
 		idData =
-		    driver_atoi((param_in->rx_offer) ? param_in->
-				offer_rx : param_in->answer_rx);
+		    driver_atoi((param_in->
+				 rx_offer) ? param_in->offer_rx : param_in->
+				answer_rx);
 		ret++;
 
 	} else if (strcmp(param_in->key, "CHAP_C") == 0) {
 
-		HexTextToData((param_in->rx_offer) ? param_in->
-			      offer_rx : param_in->answer_rx,
-			      ISCSI_CHAP_STRING_LENGTH, chapdata,
+		HexTextToData((param_in->
+			       rx_offer) ? param_in->offer_rx : param_in->
+			      answer_rx, ISCSI_CHAP_STRING_LENGTH, chapdata,
 			      ISCSI_CHAP_DATA_LENGTH);
 
 		if ((param = param_get(head, "CHAP_N")) == NULL) {
@@ -695,9 +696,9 @@ param_parse_security(struct iscsi_parameter *head,
 		MD5_Update(context, chapdata, ISCSI_CHAP_DATA_LENGTH);
 		MD5_Final(chapdata, context);
 
-		HexTextToData((param_in->rx_offer) ? param_in->
-			      offer_rx : param_in->answer_rx,
-			      ISCSI_CHAP_STRING_LENGTH, respdata,
+		HexTextToData((param_in->
+			       rx_offer) ? param_in->offer_rx : param_in->
+			      answer_rx, ISCSI_CHAP_STRING_LENGTH, respdata,
 			      ISCSI_CHAP_DATA_LENGTH);
 
 		HexDataToText(chapdata, ISCSI_CHAP_DATA_LENGTH,
@@ -954,10 +955,11 @@ param_text_parse(struct iscsi_parameter *head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						strlcpy(auth_result->
-							value_l->value, "Fail",
-							sizeof(auth_result->
-							       value_l->value));
+						strlcpy(auth_result->value_l->
+							value, "Fail",
+							sizeof
+							(auth_result->value_l->
+							 value));
 					}
 					PTP_CLEANUP;
 					return (ISCSI_PARAM_STATUS_AUTH_FAILED);
@@ -966,10 +968,11 @@ param_text_parse(struct iscsi_parameter *head,
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
-						strlcpy(auth_result->
-							value_l->value, "Yes",
-							sizeof(auth_result->
-							       value_l->value));
+						strlcpy(auth_result->value_l->
+							value, "Yes",
+							sizeof
+							(auth_result->value_l->
+							 value));
 					}
 				}
 				/*
@@ -1112,8 +1115,7 @@ binary_or:
 							    (param->answer_tx,
 							     offer,
 							     sizeof
-							     (param->
-							      answer_tx));
+							     (param->answer_tx));
 							goto add_answer;
 						}
 					}

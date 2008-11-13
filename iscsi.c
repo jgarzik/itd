@@ -131,7 +131,7 @@ int iscsi_task_rsp_encap(uint8_t * header, struct iscsi_task_rsp *rsp)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "MaxCmdSN:  %u\n",
 		    rsp->MaxCmdSN);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= ISCSI_TASK_RSP;	/* Opcode */
 	header[1] |= 0x80;	/* Byte 1 bit 0  */
@@ -218,7 +218,7 @@ int iscsi_nop_in_encap(uint8_t * header, struct iscsi_nop_in_args *cmd)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "MaxCmdSN:     %u\n",
 		    cmd->MaxCmdSN);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] = 0x00 | ISCSI_NOP_IN;	/* Opcode  */
 	header[1] |= 0x80;	/* Reserved */
@@ -321,7 +321,7 @@ int iscsi_text_rsp_encap(uint8_t * header, struct iscsi_text_rsp_args *rsp)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "MaxCmdSN:     %u\n",
 		    rsp->MaxCmdSN);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 	header[0] |= 0x00 | ISCSI_TEXT_RSP;	/* Opcode */
 	if (rsp->final) {
 		header[1] |= 0x80;	/* Final bit */
@@ -459,7 +459,7 @@ int iscsi_login_rsp_encap(uint8_t * header, struct iscsi_login_rsp_args *rsp)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
 		    "Status-Detail:     %u\n", rsp->status_detail);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= 0x00 | ISCSI_LOGIN_RSP;	/* Opcode  */
 	if (rsp->transit) {
@@ -570,7 +570,7 @@ int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args *rsp)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Time2Retain: %hu\n",
 		    rsp->Time2Retain);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= 0x00 | ISCSI_LOGOUT_RSP;	/* Opcode  */
 	header[1] |= 0x80;	/* Reserved  */
@@ -683,7 +683,7 @@ int iscsi_scsi_rsp_encap(uint8_t * header, struct iscsi_scsi_rsp *rsp)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
 		    "Residual Count:      %u\n", rsp->basic_res_cnt);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= 0x00 | ISCSI_SCSI_RSP;	/* Opcode  */
 	header[1] |= 0x80;	/* Byte 1 bit 7 */
@@ -743,7 +743,7 @@ int iscsi_r2t_encap(uint8_t * header, struct iscsi_r2t *cmd)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "Length:       %u\n",
 		    cmd->length);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= 0x00 | ISCSI_R2T;	/* Opcode  */
 	header[1] |= 0x80;
@@ -853,7 +853,7 @@ int iscsi_read_data_encap(uint8_t * header, struct iscsi_read_data *cmd)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
 		    "Residual Count:    %u\n", cmd->res_count);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] = 0x00 | ISCSI_READ_DATA;	/* Opcode  */
 	if (cmd->final) {
@@ -912,7 +912,7 @@ int iscsi_reject_encap(uint8_t * header, struct iscsi_reject *cmd)
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__, "DataSN:   %u\n",
 		    cmd->DataSN);
 
-	(void)memset(header, 0x0, ISCSI_HEADER_LEN);
+	memset(header, 0x0, ISCSI_HEADER_LEN);
 
 	header[0] |= 0x00 | ISCSI_REJECT;	/* Opcode  */
 	header[1] |= 0x80;

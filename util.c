@@ -132,7 +132,7 @@ iscsi_trace(const int trace, const char *f, const int line, const char *fmt,
 
 	if (iscsi_debug_level & trace) {
 		va_start(vp, fmt);
-		(void)vsnprintf(buf, sizeof(buf), fmt, vp);
+		vsnprintf(buf, sizeof(buf), fmt, vp);
 		printf("pid %d:%s:%d: %s", (int)getpid, f, line, buf);
 		va_end(vp);
 	}
@@ -147,7 +147,7 @@ void iscsi_trace_warning(const char *f, const int line, const char *fmt, ...)
 
 	if (iscsi_debug_level & TRACE_WARN) {
 		va_start(vp, fmt);
-		(void)vsnprintf(buf, sizeof(buf), fmt, vp);
+		vsnprintf(buf, sizeof(buf), fmt, vp);
 		printf("pid %d:%s:%d: ***WARNING*** %s",
 		       (int)getpid, f, line, buf);
 		va_end(vp);
@@ -162,7 +162,7 @@ void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 	char buf[8192];
 
 	va_start(vp, fmt);
-	(void)vsnprintf(buf, sizeof(buf), fmt, vp);
+	vsnprintf(buf, sizeof(buf), fmt, vp);
 	va_end(vp);
 	printf("pid %d:%s:%d: ***ERROR*** %s", (int)getpid, f, line, buf);
 #  ifdef HAVE_SYSLOG
@@ -699,13 +699,13 @@ int allow_netmask(const char *netmaskarg, const char *addr)
 	}
 
 	/* find out if slash notation has been used */
-	(void)memset(&a, 0x0, sizeof(a));
+	memset(&a, 0x0, sizeof(a));
 	if ((cp = strchr(netmask, '/')) == NULL) {
-		(void)strlcpy(maskaddr, netmask, sizeof(maskaddr));
+		strlcpy(maskaddr, netmask, sizeof(maskaddr));
 		slash = 32;
 	} else {
-		(void)strlcpy(maskaddr, netmask,
-			      MIN(sizeof(maskaddr), (int)(cp - netmask) + 1));
+		strlcpy(maskaddr, netmask,
+			MIN(sizeof(maskaddr), (int)(cp - netmask) + 1));
 		slash = atoi(cp + 1);
 	}
 
@@ -725,17 +725,17 @@ int allow_netmask(const char *netmaskarg, const char *addr)
 
 	/* translate netmask to in_addr */
 	if (!inet_aton(maskaddr, &m)) {
-		(void)fprintf(stderr,
-			      "allow_netmask: can't interpret mask `%s' as an IPv4 address\n",
-			      maskaddr);
+		fprintf(stderr,
+			"allow_netmask: can't interpret mask `%s' as an IPv4 address\n",
+			maskaddr);
 		return 0;
 	}
 
 	/* translate address to in_addr */
 	if (!inet_aton(addr, &a)) {
-		(void)fprintf(stderr,
-			      "allow_netmask: can't interpret address `%s' as an IPv4 address\n",
-			      addr);
+		fprintf(stderr,
+			"allow_netmask: can't interpret address `%s' as an IPv4 address\n",
+			addr);
 		return 0;
 	}
 #ifdef ALLOW_NETMASK_DEBUG
