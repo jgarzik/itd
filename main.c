@@ -12,21 +12,21 @@ uint32_t iscsi_debug_level = 0;
 
 static GServer *tcp_srv;
 
-static globals_t gbls = {
+static struct globals gbls = {
 	.port = 3260,
 };
 
-int device_init(globals_t * a, targv_t * b, disc_target_t * c)
+int device_init(struct globals * a, targv_t * b, struct disc_target * c)
 {
 	return -1;
 }
 
-int device_command(target_session_t * e, target_cmd_t * d)
+int device_command(struct target_session * e, struct target_cmd * d)
 {
 	return -1;
 }
 
-int device_shutdown(target_session_t * f)
+int device_shutdown(struct target_session * f)
 {
 	return -1;
 }

@@ -52,15 +52,15 @@
 #include "parameters.h"
 
 int
-param_list_add(iscsi_parameter_t ** head, int type, const char *key,
+param_list_add(struct iscsi_parameter ** head, int type, const char *key,
 	       const char *dflt, const char *valid)
 {
-	iscsi_parameter_t *param;
+	struct iscsi_parameter *param;
 
 	/* Allocated new parameter type */
 
 	if (*head == NULL) {
-		if ((*head = malloc(sizeof(iscsi_parameter_t))) == NULL) {
+		if ((*head = malloc(sizeof(struct iscsi_parameter))) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -69,7 +69,7 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	} else {
 		for (param = *head; param->next != NULL; param = param->next) {
 		}
-		if ((param->next = malloc(sizeof(iscsi_parameter_t))) == NULL) {
+		if ((param->next = malloc(sizeof(struct iscsi_parameter))) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -93,7 +93,7 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	/* Allocated space for value list and set first item to default; and */
 	/* set offer and answer lists to NULL */
 
-	if ((param->value_l = malloc(sizeof(iscsi_parameter_value_t))) == NULL) {
+	if ((param->value_l = malloc(sizeof(struct iscsi_parameter_item))) == NULL) {
 		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
 		return -1;
 	}
@@ -154,10 +154,10 @@ param_list_add(iscsi_parameter_t ** head, int type, const char *key,
 	return 0;
 }
 
-int param_list_destroy(iscsi_parameter_t * head)
+int param_list_destroy(struct iscsi_parameter * head)
 {
-	iscsi_parameter_t *ptr, *tmp;
-	iscsi_parameter_value_t *item_ptr, *next;
+	struct iscsi_parameter *ptr, *tmp;
+	struct iscsi_parameter_item *item_ptr, *next;
 
 	for (ptr = head; ptr != NULL;) {
 		tmp = ptr;
@@ -179,9 +179,9 @@ int param_list_destroy(iscsi_parameter_t * head)
 	return 0;
 }
 
-iscsi_parameter_t *param_get(iscsi_parameter_t * head, const char *key)
+struct iscsi_parameter *param_get(struct iscsi_parameter * head, const char *key)
 {
-	iscsi_parameter_t *ptr;
+	struct iscsi_parameter *ptr;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -193,15 +193,15 @@ iscsi_parameter_t *param_get(iscsi_parameter_t * head, const char *key)
 	return NULL;
 }
 
-char *param_val(iscsi_parameter_t * head, const char *key)
+char *param_val(struct iscsi_parameter * head, const char *key)
 {
 	return param_val_which(head, key, 0);
 }
 
-char *param_val_which(iscsi_parameter_t * head, const char *key, int which)
+char *param_val_which(struct iscsi_parameter * head, const char *key, int which)
 {
-	iscsi_parameter_t *ptr;
-	iscsi_parameter_value_t *item_ptr;
+	struct iscsi_parameter *ptr;
+	struct iscsi_parameter_item *item_ptr;
 	int i = 0;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
@@ -230,10 +230,10 @@ char *param_val_which(iscsi_parameter_t * head, const char *key, int which)
 	return NULL;
 }
 
-static int param_val_delete_all(iscsi_parameter_t * head, char *key)
+static int param_val_delete_all(struct iscsi_parameter * head, char *key)
 {
-	iscsi_parameter_t *ptr;
-	iscsi_parameter_value_t *item_ptr, *next;
+	struct iscsi_parameter *ptr;
+	struct iscsi_parameter_item *item_ptr, *next;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -251,9 +251,9 @@ static int param_val_delete_all(iscsi_parameter_t * head, char *key)
 	return -1;
 }
 
-int param_val_reset(iscsi_parameter_t * head, const char *key)
+int param_val_reset(struct iscsi_parameter * head, const char *key)
 {
-	iscsi_parameter_t *ptr;
+	struct iscsi_parameter *ptr;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		if (strcmp(ptr->key, key) == 0) {
@@ -266,9 +266,9 @@ int param_val_reset(iscsi_parameter_t * head, const char *key)
 	return -1;
 }
 
-int param_atoi(iscsi_parameter_t * head, const char *key)
+int param_atoi(struct iscsi_parameter * head, const char *key)
 {
-	iscsi_parameter_t *ptr;
+	struct iscsi_parameter *ptr;
 	char *value;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
@@ -294,9 +294,9 @@ int param_atoi(iscsi_parameter_t * head, const char *key)
 	return 0;
 }
 
-int param_equiv(iscsi_parameter_t * head, const char *key, const char *val)
+int param_equiv(struct iscsi_parameter * head, const char *key, const char *val)
 {
-	iscsi_parameter_t *ptr;
+	struct iscsi_parameter *ptr;
 	char *value;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
@@ -321,10 +321,10 @@ int param_equiv(iscsi_parameter_t * head, const char *key, const char *val)
 	return -1;
 }
 
-int param_num_vals(iscsi_parameter_t * head, char *key)
+int param_num_vals(struct iscsi_parameter * head, char *key)
 {
-	iscsi_parameter_t *ptr;
-	iscsi_parameter_value_t *item_ptr;
+	struct iscsi_parameter *ptr;
+	struct iscsi_parameter_item *item_ptr;
 	int num = 0;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
@@ -341,10 +341,10 @@ int param_num_vals(iscsi_parameter_t * head, char *key)
 	return -1;
 }
 
-int param_list_print(iscsi_parameter_t * head)
+int param_list_print(struct iscsi_parameter * head)
 {
-	iscsi_parameter_t *ptr;
-	iscsi_parameter_value_t *item_ptr;
+	struct iscsi_parameter *ptr;
+	struct iscsi_parameter_item *item_ptr;
 
 	for (ptr = head; ptr != NULL; ptr = ptr->next) {
 		for (item_ptr = ptr->value_l; item_ptr != NULL;
@@ -385,7 +385,7 @@ int param_text_print(char *text, uint32_t text_len)
 
 /* ARGSUSED */
 int
-param_text_add(iscsi_parameter_t * head, const char *key, const char *value,
+param_text_add(struct iscsi_parameter * head, const char *key, const char *value,
 	       char *text, int *len, int size, int offer)
 {
 	int cc;
@@ -408,7 +408,7 @@ int driver_atoi(const char *s)
 }
 
 /* find the credentials for `user' and put them in `cred' */
-static int find_credentials(iscsi_cred_t * cred, char *user, const char *auth)
+static int find_credentials(struct iscsi_cred * cred, char *user, const char *auth)
 {
 #if 0
 	conffile_t conf;
@@ -457,7 +457,7 @@ static int find_credentials(iscsi_cred_t * cred, char *user, const char *auth)
 
 #if 0
 /* free any storage allocated in `cred' */
-static void free_cred(iscsi_cred_t * cred)
+static void free_cred(struct iscsi_cred * cred)
 {
 	if (cred) {
 		free(cred->user);
@@ -473,9 +473,9 @@ static void free_cred(iscsi_cred_t * cred)
  * <0: failed
  */
 static int
-param_parse_security(iscsi_parameter_t * head,
-		     iscsi_parameter_t * param_in,
-		     iscsi_cred_t * cred,
+param_parse_security(struct iscsi_parameter * head,
+		     struct iscsi_parameter * param_in,
+		     struct iscsi_cred * cred,
 		     char *text_out, int *text_len_out, int textsize)
 {
 
@@ -484,7 +484,7 @@ param_parse_security(iscsi_parameter_t * head,
 	static uint8_t respdata[ISCSI_CHAP_DATA_LENGTH];
 	char *chapstring = NULL;
 	MD5_CTX *context = NULL;
-	iscsi_parameter_t *param = NULL;
+	struct iscsi_parameter *param = NULL;
 	int ret = 1;
 
 	if ((chapstring = malloc(ISCSI_CHAP_STRING_LENGTH)) == NULL) {
@@ -716,16 +716,16 @@ param_parse_security(iscsi_parameter_t * head,
 }
 
 int
-param_text_parse(iscsi_parameter_t * head,
-		 iscsi_cred_t * cred,
+param_text_parse(struct iscsi_parameter * head,
+		 struct iscsi_cred * cred,
 		 char *text_in, int text_len_in,
 		 char *text_out, int *text_len_out, int textsize, int outgoing)
 {
 	static char *key = NULL;
 	char *value = NULL;
 	char *ptr, *eq;
-	iscsi_parameter_t *param;
-	iscsi_parameter_value_t *item_ptr;
+	struct iscsi_parameter *param;
+	struct iscsi_parameter_item *item_ptr;
 	int offer_i, answer_i, max_i, val1_i, val2_i, negotiated_i;
 	char *p1, *p2, *p3, *p4;
 	char *offer = NULL;
@@ -948,7 +948,7 @@ param_text_parse(iscsi_parameter_t * head,
 							  textsize)) > 1) {
 					goto next;
 				} else if (ret < 0) {
-					iscsi_parameter_t *auth_result;
+					struct iscsi_parameter *auth_result;
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
@@ -961,7 +961,7 @@ param_text_parse(iscsi_parameter_t * head,
 					PTP_CLEANUP;
 					return (ISCSI_PARAM_STATUS_AUTH_FAILED);
 				} else if (ret == 0) {
-					iscsi_parameter_t *auth_result;
+					struct iscsi_parameter *auth_result;
 					if ((auth_result =
 					     param_get(head,
 						       "AuthResult")) != 0) {
@@ -1429,7 +1429,7 @@ value_ok:
 				     item_ptr = item_ptr->next) {
 				}
 				if ((item_ptr->next =
-				     malloc(sizeof(iscsi_parameter_value_t)))
+				     malloc(sizeof(struct iscsi_parameter_item)))
 				    == NULL) {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "malloc() failed\n");
@@ -1444,7 +1444,7 @@ value_ok:
 			iscsi_trace(TRACE_ISCSI_PARAM, __FILE__, __LINE__,
 				    "allocating value ptr\n");
 			if ((param->value_l =
-			     malloc(sizeof(iscsi_parameter_value_t))) == NULL) {
+			     malloc(sizeof(struct iscsi_parameter_item))) == NULL) {
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "malloc() failed\n");
 				PTP_ERROR;
@@ -1470,12 +1470,12 @@ next:
 }
 
 void
-set_session_parameters(iscsi_parameter_t * head,
-		       iscsi_sess_param_t * sess_params)
+set_session_parameters(struct iscsi_parameter * head,
+		       struct iscsi_sess_param * sess_params)
 {
 	/* These parameters are standard and assuming that they are always */
 	/* present in the list (head). */
-	memset(sess_params, 0, sizeof(iscsi_sess_param_t));
+	memset(sess_params, 0, sizeof(struct iscsi_sess_param));
 	sess_params->max_burst_length = param_atoi(head, "MaxBurstLength");
 	sess_params->first_burst_length = param_atoi(head, "FirstBurstLength");
 	sess_params->max_data_seg_length =

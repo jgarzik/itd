@@ -95,14 +95,14 @@ enum {
  * Private *
  ***********/
 
-static target_session_t *g_session;
+static struct target_session *g_session;
 static GList *session_list;
 
 /*********************
  * Private Functions *
  *********************/
 
-static int reject_t(target_session_t * sess, uint8_t * header, uint8_t reason)
+static int reject_t(struct target_session * sess, uint8_t * header, uint8_t reason)
 {
 	struct iscsi_reject reject;
 	uint8_t rsp_header[ISCSI_HEADER_LEN];
@@ -131,9 +131,9 @@ static int reject_t(target_session_t * sess, uint8_t * header, uint8_t reason)
 	return 0;
 }
 
-static int scsi_command_t(target_session_t * sess, uint8_t * header)
+static int scsi_command_t(struct target_session * sess, uint8_t * header)
 {
-	target_cmd_t cmd;
+	struct target_cmd cmd;
 	struct iscsi_scsi_cmd_args scsi_cmd;
 	struct iscsi_scsi_rsp scsi_rsp;
 	struct iscsi_read_data data;
@@ -503,7 +503,7 @@ response:
 	return 0;
 }
 
-static int task_command_t(target_session_t * sess, uint8_t * header)
+static int task_command_t(struct target_session * sess, uint8_t * header)
 {
 	struct iscsi_task_cmd cmd;
 	struct iscsi_task_rsp rsp;
@@ -574,7 +574,7 @@ static int task_command_t(target_session_t * sess, uint8_t * header)
 	return 0;
 }
 
-static int nop_out_t(target_session_t * sess, uint8_t * header)
+static int nop_out_t(struct target_session * sess, uint8_t * header)
 {
 	struct iscsi_nop_out_args nop_out;
 
@@ -637,7 +637,7 @@ static int nop_out_t(target_session_t * sess, uint8_t * header)
  * text_command_t
  */
 
-static int text_command_t(target_session_t * sess, uint8_t * header)
+static int text_command_t(struct target_session * sess, uint8_t * header)
 {
 	struct iscsi_text_cmd_args text_cmd;
 	struct iscsi_text_rsp_args text_rsp;
@@ -679,7 +679,7 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 	/* Read text parameters */
 
 	if ((len_in = text_cmd.length) != 0) {
-		iscsi_parameter_t *ptr;
+		struct iscsi_parameter *ptr;
 
 		if ((text_in = malloc(len_in + 1)) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -799,7 +799,7 @@ static int text_command_t(target_session_t * sess, uint8_t * header)
 }
 
 /* given a target's iqn, find the relevant target that we're exporting */
-static int find_target_iqn(target_session_t * sess)
+static int find_target_iqn(struct target_session * sess)
 {
 	char buf[BUFSIZ];
 	int i;
@@ -817,7 +817,7 @@ static int find_target_iqn(target_session_t * sess)
 }
 
 /* given a tsih, find the relevant target that we're exporting */
-static int find_target_tsih(globals_t * globals, int tsih)
+static int find_target_tsih(struct globals * globals, int tsih)
 {
 	int i;
 
@@ -833,7 +833,7 @@ static int find_target_tsih(globals_t * globals, int tsih)
  * login_command_t() handles login requests and replies.
  */
 
-static int login_command_t(target_session_t * sess, uint8_t * header)
+static int login_command_t(struct target_session * sess, uint8_t * header)
 {
 	struct iscsi_login_cmd_args cmd;
 	struct iscsi_login_rsp_args rsp;
@@ -1118,7 +1118,7 @@ response:
 	return 0;
 }
 
-static int logout_command_t(target_session_t * sess, uint8_t * header)
+static int logout_command_t(struct target_session * sess, uint8_t * header)
 {
 	struct iscsi_logout_cmd_args cmd;
 	struct iscsi_logout_rsp_args rsp;
@@ -1188,7 +1188,7 @@ static int logout_command_t(target_session_t * sess, uint8_t * header)
 	return 0;
 }
 
-static int verify_cmd_t(target_session_t * sess, uint8_t * header)
+static int verify_cmd_t(struct target_session * sess, uint8_t * header)
 {
 	int op = ISCSI_OPCODE(header);
 
@@ -1238,7 +1238,7 @@ static int verify_cmd_t(target_session_t * sess, uint8_t * header)
  * this function looks at the opcode in the received header for the session,
  * and does a switch on the opcode to call the required function.
  */
-static int execute_t(target_session_t * sess, uint8_t * header)
+static int execute_t(struct target_session * sess, uint8_t * header)
 {
 	int op = ISCSI_OPCODE(header);
 
@@ -1320,7 +1320,7 @@ static int execute_t(target_session_t * sess, uint8_t * header)
 }
 
 static int
-read_data_pdu(target_session_t *sess,
+read_data_pdu(struct target_session *sess,
 	      struct iscsi_write_data *data, struct iscsi_scsi_cmd_args *args)
 {
 	uint8_t header[ISCSI_HEADER_LEN];
@@ -1371,7 +1371,7 @@ read_data_pdu(target_session_t *sess,
 }
 
 int
-target_transfer_data(target_session_t * sess, struct iscsi_scsi_cmd_args * args,
+target_transfer_data(struct target_session * sess, struct iscsi_scsi_cmd_args * args,
 		     struct iovec *sg, int sg_len)
 {
 	struct iscsi_write_data data;
@@ -1592,11 +1592,11 @@ target_transfer_data(target_session_t * sess, struct iscsi_scsi_cmd_args * args,
  * Public Functions *
  ********************/
 
-int target_init(globals_t * gp, targv_t * tv, char *TargetName)
+int target_init(struct globals * gp, targv_t * tv, char *TargetName)
 {
 	int i;
 
-	NEWARRAY(target_session_t, g_session, gp->max_sessions, "target_init",
+	NEWARRAY(struct target_session, g_session, gp->max_sessions, "target_init",
 		 return -1);
 	(void)strlcpy(gp->targetname, TargetName, sizeof(gp->targetname));
 	if (gp->state == TARGET_INITIALIZING || gp->state == TARGET_INITIALIZED) {
@@ -1626,7 +1626,7 @@ int target_init(globals_t * gp, targv_t * tv, char *TargetName)
 	return 0;
 }
 
-int target_sess_cleanup(target_session_t *sess)
+int target_sess_cleanup(struct target_session *sess)
 {
 	/* Clean up */
 
@@ -1648,9 +1648,9 @@ int target_sess_cleanup(target_session_t *sess)
 	return 0;
 }
 
-int target_shutdown(globals_t * gp)
+int target_shutdown(struct globals * gp)
 {
-	target_session_t *sess;
+	struct target_session *sess;
 	GList *tmp;
 
 	if ((gp->state == TARGET_SHUTTING_DOWN)
@@ -1692,7 +1692,7 @@ int target_shutdown(globals_t * gp)
 	return 0;
 }
 
-static void target_read_evt(target_session_t *sess, GConnEvent *evt)
+static void target_read_evt(struct target_session *sess, GConnEvent *evt)
 {
 	uint8_t *buf;
 	uint32_t v;
@@ -1743,7 +1743,7 @@ static void target_read_evt(target_session_t *sess, GConnEvent *evt)
 
 static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 {
-	target_session_t *sess = user_data;
+	struct target_session *sess = user_data;
 
 	switch (evt->type) {
 	case GNET_CONN_READ:
@@ -1762,14 +1762,14 @@ static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 	}
 }
 
-int target_accept(globals_t * gp, GConn * conn)
+int target_accept(struct globals * gp, GConn * conn)
 {
-	target_session_t *sess;
+	struct target_session *sess;
 	char remote[1024];
 	char local[1024];
 	GInetAddr *addr;
 	gchar *addr_s;
-	iscsi_parameter_t **l;
+	struct iscsi_parameter **l;
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "listener thread started\n");
