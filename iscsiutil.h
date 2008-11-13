@@ -138,9 +138,6 @@ extern void     iscsi_print_buffer(uint8_t *, const size_t);
  * Socket Abstraction
  */
 
-#define ISCSI_SOCK_MSG_BYTE_ALIGN    4
-
-extern int      iscsi_sock_msg(int, int, unsigned, void *, int);
 extern int      iscsi_sock_send_header_and_data(GConn *,
 						const void *, unsigned,
 						const void *, unsigned, int);
@@ -193,12 +190,6 @@ extern void     GenRandomData(uint8_t *, uint32_t);
 #ifndef ISCSI_MAX_IOVECS
 #define ISCSI_MAX_IOVECS        32
 #endif
-
-enum {
-	/* used in iscsi_sock_msg() */
-	Receive = 0,
-	Transmit = 1
-};
 
 extern int      allow_netmask(const char *, const char *);
 

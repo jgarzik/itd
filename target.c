@@ -1338,39 +1338,36 @@ static int execute_t(struct target_session *sess, uint8_t * header)
 
 static int
 read_data_pdu(struct target_session *sess,
-	      struct iscsi_write_data *data, struct iscsi_scsi_cmd_args *args)
+	      struct iscsi_write_data *data)
 {
 	uint8_t         header[ISCSI_HEADER_LEN];
 	int             ret_val = -1;
 
-	if (iscsi_sock_msg(sess->sock, 0, ISCSI_HEADER_LEN, header, 0) !=
-	    ISCSI_HEADER_LEN) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_sock_msg() failed\n");
-		return -1;
-	}
+	memcpy(header, sess->header, sizeof(header));
+
 	if ((ret_val = iscsi_write_data_decap(header, data)) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_write_data_decap() failed\n");
 		return ret_val;
 	}
+
 	/* Check args */
 	if (sess->sess_params.max_data_seg) {
 		if (data->length > sess->sess_params.max_data_seg) {
-			args->status = 0x02;
+			sess->xfer.status = 0x02;
 			return -1;
 		}
 	}
-	if ((args->bytes_recv + data->length) > args->trans_len) {
-		args->status = 0x02;
+	if ((sess->xfer.bytes_recv + data->length) > sess->xfer.trans_len) {
+		sess->xfer.status = 0x02;
 		return -1;
 	}
-	if (data->tag != args->tag) {
+	if (data->tag != sess->xfer.tag) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "Data ITT (%d) does not match with command ITT (%d)\n",
-			    data->tag, args->tag);
+			    data->tag, sess->xfer.tag);
 		if (data->final) {
-			args->status = 0x02;
+			sess->xfer.status = 0x02;
 			return -1;
 		} else {
 			/* Send a reject PDU */
@@ -1387,23 +1384,153 @@ read_data_pdu(struct target_session *sess,
 	return 0;
 }
 
+static int send_r2t(struct target_session *sess)
+{
+	int send_it = 0;
+	uint8_t         header[ISCSI_HEADER_LEN];
+
+	/*
+	 * Send R2T if we're either operating in solicted
+	 * mode or we're operating in unsolicted
+	 */
+	/* mode and have reached the first burst */
+	if (!sess->xfer.r2t_flag && (sess->sess_params.initial_r2t ||
+			  (sess->sess_params.first_burst
+			   && (sess->xfer.bytes_recv >=
+			       sess->sess_params.first_burst))))
+		send_it = 1;
+
+	if (!send_it)
+		return 0;
+
+	sess->xfer.desired_len =
+	    MIN((sess->xfer.trans_len - sess->xfer.bytes_recv),
+		sess->sess_params.max_burst);
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "sending R2T for %u bytes data\n",
+		    sess->xfer.desired_len);
+
+	sess->xfer.r2t.tag = sess->xfer.tag;
+
+	sess->xfer.r2t.transfer_tag = 0x1234;
+
+	sess->xfer.r2t.ExpCmdSN = sess->ExpCmdSN;
+	sess->xfer.r2t.MaxCmdSN = sess->MaxCmdSN;
+	sess->xfer.r2t.StatSN = ++(sess->StatSN);
+	sess->xfer.r2t.length = sess->xfer.desired_len;
+	sess->xfer.r2t.offset = sess->xfer.bytes_recv;
+
+	if (iscsi_r2t_encap(header, &sess->xfer.r2t) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "r2t_encap() failed\n");
+		return -1;
+	}
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
+		    __LINE__,
+		    "sending R2T tag %u transfer tag %u len %u offset %u\n",
+		    sess->xfer.r2t.tag, sess->xfer.r2t.transfer_tag,
+		    sess->xfer.r2t.length, sess->xfer.r2t.offset);
+
+	gnet_conn_write(sess->conn, (gchar *) header,
+			ISCSI_HEADER_LEN);
+
+	sess->xfer.r2t_flag = 1;
+	sess->xfer.r2t.R2TSN += 1;
+
+	return 0;
+}
+
 #define TTD_CLEANUP do {						\
 	free(iov_ptr);				\
 } while (/* CONSTCOND */ 0)
+
+static int target_data_pdu(struct target_session *sess)
+{
+	struct iscsi_write_data data;
+	int read_status;
+	struct iovec   *iov = NULL, *iov_ptr = NULL;
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "reading data pdu\n");
+	if ((read_status = read_data_pdu(sess, &data)) != 0) {
+		if (read_status == 1) {
+			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
+				    __LINE__,
+		    "Unknown PDU received and ignored.  Expecting Data PDU\n");
+			return 1;
+		} else {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "read_data_pdu() failed\n");
+			sess->xfer.status = 0x02;
+			return -1;
+		}
+	}
+	WARN_NOT_EQUAL("ExpStatSN", data.ExpStatSN, sess->StatSN);
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "read data pdu OK (offset %u, length %u)\n",
+		    data.offset, data.length);
+
+	/* Scatter into destination buffers */
+
+	/* FIXME - VERY wrong - just a placeholder */
+	memcpy(iov[0].iov_base, sess->buff, data.length);
+	iov[0].iov_len -= data.length;
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "successfully scattered %u bytes\n", data.length);
+
+	sess->xfer.bytes_recv += data.length;
+	sess->xfer.desired_len -= data.length;
+
+	if ((!sess->xfer.r2t_flag)
+	    && (sess->xfer.bytes_recv > sess->sess_params.first_burst)) {
+		iscsi_trace_error(__FILE__, __LINE__,
+		  "Received unsolicited data (%d) more than first_burst (%d)\n",
+				  sess->xfer.bytes_recv,
+				  sess->sess_params.first_burst);
+		sess->xfer.status = 0x02;
+		return -1;
+	}
+	if ((sess->xfer.desired_len != 0) && data.final) {
+		iscsi_trace_error(__FILE__, __LINE__,
+		  "Expecting more data (%d) from initiator for this sequence\n",
+				  sess->xfer.desired_len);
+		sess->xfer.status = 0x02;
+		return -1;
+	}
+	if ((sess->xfer.desired_len == 0) && !data.final) {
+		iscsi_trace_error(__FILE__, __LINE__,
+		  "Final bit not set on the last data PDU of this sequence\n");
+		sess->xfer.status = 0x02;
+		return -1;
+	}
+	if ((sess->xfer.desired_len == 0)
+	    && (sess->xfer.bytes_recv < sess->xfer.trans_len)) {
+		sess->xfer.r2t_flag = 0;
+	}
+
+	if (sess->xfer.bytes_recv < sess->xfer.trans_len) {
+		/* continue transfer */
+		sess->readst = srs_data_hdr;
+	} else {
+		RETURN_NOT_EQUAL("Final bit", data.final, 1, TTD_CLEANUP, -1);
+	}
+
+	return 0;
+
+}
 
 int target_transfer_data(struct target_session *sess,
 			 struct iscsi_scsi_cmd_args *args, struct iovec *sg,
 			 int sg_len)
 {
-	struct iscsi_write_data data;
 	struct iovec   *iov, *iov_ptr = NULL;
 	int             iov_len;
-	int             r2t_flag = 0;
-	int             read_status = 0;
-	struct iscsi_r2t r2t;
-	int             desired_xfer_len;
 
-	args->bytes_recv = 0;
+	memset(&sess->xfer, 0, sizeof(sess->xfer));
+
 	if ((!sess->sess_params.immediate_data) && args->length) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "Cannot accept any Immediate data\n");
@@ -1449,147 +1576,31 @@ int target_transfer_data(struct target_session *sess,
 		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
 			    "successfully read %d bytes immediate write data\n",
 			    args->length);
-		args->bytes_recv += args->length;
+		sess->xfer.bytes_recv += args->length;
 	}
 	/*
 	 * Read iSCSI data PDUs
 	 */
 
-	if (args->bytes_recv >= args->trans_len) {
+	if (sess->xfer.bytes_recv >= args->trans_len) {
 		RETURN_NOT_EQUAL("Final bit", args->final, 1, TTD_CLEANUP, -1);
 		goto out;
 	}
 
-	desired_xfer_len = MIN(sess->sess_params.first_burst,
-			       args->trans_len) - args->bytes_recv;
+	sess->xfer.tag = args->tag;
+	sess->xfer.trans_len = args->trans_len;
+	sess->xfer.desired_len = MIN(sess->sess_params.first_burst,
+			       args->trans_len) - sess->xfer.bytes_recv;
 
-	memset(&r2t, 0x0, sizeof(r2t));
-	do {
+	if (send_r2t(sess)) {
+		args->status = 0x02;
+		TTD_CLEANUP;
+		return -1;
+	}
 
-		/*
-		 * Send R2T if we're either operating in solicted
-		 * mode or we're operating in unsolicted
-		 */
-		/* mode and have reached the first burst */
-		if (!r2t_flag && (sess->sess_params.initial_r2t ||
-				  (sess->sess_params.first_burst
-				   && (args->bytes_recv >=
-				       sess->sess_params.first_burst)))) {
-			uint8_t         header[ISCSI_HEADER_LEN];
-
-			desired_xfer_len =
-			    MIN((args->trans_len - args->bytes_recv),
-				sess->sess_params.max_burst);
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-				    __LINE__,
-				    "sending R2T for %u bytes data\n",
-				    desired_xfer_len);
-			r2t.tag = args->tag;
-
-			r2t.transfer_tag = 0x1234;
-
-			r2t.ExpCmdSN = sess->ExpCmdSN;
-			r2t.MaxCmdSN = sess->MaxCmdSN;
-			r2t.StatSN = ++(sess->StatSN);
-			r2t.length = desired_xfer_len;
-			r2t.offset = args->bytes_recv;
-			if (iscsi_r2t_encap(header, &r2t) != 0) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "r2t_encap() failed\n");
-				TTD_CLEANUP;
-				return -1;
-			}
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-				    __LINE__,
-				    "sending R2T tag %u transfer tag %u len %u offset %u\n",
-				    r2t.tag, r2t.transfer_tag,
-				    r2t.length, r2t.offset);
-
-			gnet_conn_write(sess->conn, (gchar *) header,
-					ISCSI_HEADER_LEN);
-
-			r2t_flag = 1;
-			r2t.R2TSN += 1;
-		}
-		/* Read iSCSI data PDU */
-
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "reading data pdu\n");
-		if ((read_status = read_data_pdu(sess, &data, args)) != 0) {
-			if (read_status == 1) {
-				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-					    __LINE__,
-					    "Unknown PDU received and ignored.  Expecting Data PDU\n");
-				continue;
-			} else {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "read_data_pdu() failed\n");
-				args->status = 0x02;
-				TTD_CLEANUP;
-				return -1;
-			}
-		}
-		WARN_NOT_EQUAL("ExpStatSN", data.ExpStatSN, sess->StatSN);
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "read data pdu OK (offset %u, length %u)\n",
-			    data.offset, data.length);
-
-		/* Modify iov with offset and length. */
-
-		iov = iov_ptr;
-		memcpy(iov, sg, sizeof(struct iovec) * sg_len);
-		iov_len = sg_len;
-		if (modify_iov(&iov, &iov_len, data.offset, data.length)
-		    != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "modify_iov() failed\n");
-			TTD_CLEANUP;
-			return -1;
-		}
-		/* Scatter into destination buffers */
-
-		if (iscsi_sock_msg
-		    (sess->sock, 0, data.length, iov, iov_len) != data.length) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_sock_msg() failed\n");
-			TTD_CLEANUP;
-			return -1;
-		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "successfully scattered %u bytes\n", data.length);
-		args->bytes_recv += data.length;
-		desired_xfer_len -= data.length;
-		if ((!r2t_flag)
-		    && (args->bytes_recv > sess->sess_params.first_burst)) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "Received unsolicited data (%d) more than first_burst (%d)\n",
-					  args->bytes_recv,
-					  sess->sess_params.first_burst);
-			args->status = 0x02;
-			TTD_CLEANUP;
-			return -1;
-		}
-		if ((desired_xfer_len != 0) && data.final) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "Expecting more data (%d) from initiator for this sequence\n",
-					  desired_xfer_len);
-			args->status = 0x02;
-			TTD_CLEANUP;
-			return -1;
-		}
-		if ((desired_xfer_len == 0) && !data.final) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "Final bit not set on the last data PDU of this sequence\n");
-			args->status = 0x02;
-			TTD_CLEANUP;
-			return -1;
-		}
-		if ((desired_xfer_len == 0)
-		    && (args->bytes_recv < args->trans_len)) {
-			r2t_flag = 0;
-		}
-	} while (args->bytes_recv < args->trans_len);
-	RETURN_NOT_EQUAL("Final bit", data.final, 1, TTD_CLEANUP, -1);
+	/* initiate read of first data PDU */
+	gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
+	sess->readst = srs_data_hdr;
 
 out:
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1710,6 +1721,7 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 
 	switch (sess->readst) {
 	case srs_basic_hdr:
+	case srs_data_hdr:
 		buf = (uint8_t *) evt->buffer;
 
 		memcpy(sess->header, buf, ISCSI_HEADER_LEN);
@@ -1722,29 +1734,41 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 		if (!v) {	/* PDU is complete, nothing else to read */
 			sess->buff = NULL;
 			sess->ahs = NULL;
-			execute_t(sess, sess->header);
+
+			if (sess->readst == srs_data_hdr)
+				target_data_pdu(sess);
+			else
+				execute_t(sess, sess->header);
 			break;
 		}
 
 		gnet_conn_readn(sess->conn, v);
-		sess->readst = srs_ahs_data;
+		if (sess->readst == srs_data_hdr)
+			sess->readst = srs_data;
+		else
+			sess->readst = srs_ahs_data;
 		break;
 
 	case srs_ahs_data:
+	case srs_data:
 		if (sess->ahs_len)
 			sess->ahs = (uint8_t *) evt->buffer;
 		else
 			sess->ahs = NULL;
 
-		if (evt->length > sess->header[4])
+		if (evt->length > sess->ahs_len)
 			sess->buff = (uint8_t *) evt->buffer + sess->ahs_len;
 		else
 			sess->buff = NULL;
 
-		execute_t(sess, sess->header);
+		sess->readst = srs_basic_hdr;
+
+		if (sess->readst == srs_data)
+			target_data_pdu(sess);
+		else
+			execute_t(sess, sess->header);
 
 		gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
-		sess->readst = srs_basic_hdr;
 		break;
 
 	default:

@@ -140,10 +140,22 @@ struct globals {
 	uint32_t        last_tsih;	/* the last TSIH that was used */
 };
 
+struct session_xfer {
+	unsigned int	desired_len;
+	struct iscsi_r2t r2t;
+	unsigned int	r2t_flag;
+	unsigned int	bytes_recv;
+	unsigned int	trans_len;
+	int		tag;
+	uint8_t		status;
+};
+
 enum session_read_state {
 	srs_err,
 	srs_basic_hdr,
 	srs_ahs_data,
+	srs_data,
+	srs_data_hdr,
 };
 
 /* session parameters */
@@ -173,6 +185,7 @@ struct target_session {
 	uint8_t         header[ISCSI_HEADER_LEN];
 	uint8_t        *ahs;
 	int             ahs_len;
+	struct session_xfer xfer;
 };
 
 struct target_cmd {
