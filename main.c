@@ -73,6 +73,7 @@ static int sense_fill(bool desc, uint8_t *buf, uint8_t key,
 
 static int sense_inval_field(bool desc, uint8_t *buf)
 {
+	/* illegal request - invalid field in CDB */
 	return sense_fill(desc, buf, SKEY_ILLEGAL_REQUEST, 0x24, 0x0);
 }
 
@@ -117,7 +118,7 @@ static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
 static void scsiop_inquiry_list(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
 {
 	const uint8_t pages[] = {
-		0x00,   /* page 0x00, this page */
+		0x00,   /* page 0x00, list of pages (this page) */
 		0x83,   /* page 0x83, device ident page */
 	};
 
@@ -135,10 +136,11 @@ static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	char s[64];
 
 	buf[0] = TYPE_DISK;
-	buf[1] = 0x83;
+	buf[1] = 0x83;		/* our page code */
 
 	sprintf(s, "%s %s", ISCSI_PRODUCT, ISCSI_FWREV);
 
+	/* !PIV, LUN assoc., ASCII identifier, type=vendor-specific */
 	buf[i + 0] = INQUIRY_DEVICE_CODESET_UTF8;
 	buf[i + 3] = strlen(s);
 	memcpy(&buf[i + 4], s, strlen(s));
@@ -196,12 +198,15 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 
 	switch (cdb[0]) {
 	case INQUIRY:
-		if (!(cdb[1] & (1 << 0)))
+		if (!(cdb[1] & (1 << 0)))		/* EVPD set? */
 			scsiop_inquiry_std(args, buf);
+
 		else if (cdb[2] == 0x00)
 			scsiop_inquiry_list(args, buf);
+
 		else if (cdb[2] == 0x83)
 			scsiop_inquiry_devid(args, buf);
+
 		else {
 			args->status = SCSI_CHECK_CONDITION;
 			args->length = sense_inval_field(false, buf);
@@ -222,6 +227,7 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			break;
 		}
 		break;
+
 	case REPORT_LUNS:
 		scsiop_report_luns(args, buf);
 		break;

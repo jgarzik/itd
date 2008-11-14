@@ -203,7 +203,7 @@ extern int      target_transfer_data(struct target_session *,
 				     struct iscsi_scsi_cmd_args *,
 				     struct iovec *, int);
 
-/* 
+/*
  * Interface from target to device:
  *
  * device_init() initializes the device
