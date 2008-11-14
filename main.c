@@ -41,7 +41,6 @@ static struct globals gbls = {
 	.port = 3260,
 };
 
-
 static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
 	RW_RECOVERY_MPAGE,
 	RW_RECOVERY_MPAGE_LEN - 2,
@@ -636,7 +635,7 @@ static int mem_init(void)
 	data_mem = calloc(1, data_mem_lba * data_lba_size);
 	if (!data_mem)
 		return -1;
-	
+
 	return 0;
 }
 
