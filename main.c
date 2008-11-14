@@ -41,6 +41,26 @@ static struct globals gbls = {
 	.port = 3260,
 };
 
+
+static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
+	RW_RECOVERY_MPAGE,
+	RW_RECOVERY_MPAGE_LEN - 2,
+	(1 << 7) | (1 << 6),	/* AWRE, ARRE */
+	0,			/* read retry count */
+	0, 0, 0, 0,
+	0,			/* write retry count */
+	0, 0, 0
+};
+
+static const uint8_t def_control_mpage[CONTROL_MPAGE_LEN] = {
+	CONTROL_MPAGE,
+	CONTROL_MPAGE_LEN - 2,
+	2,	/* DSENSE=0, GLTSD=1 */
+	0,	/* [QAM+QERR may be 1, see 05-359r1] */
+	0, 0, 0, 0, 0xff, 0xff,
+	0, 30	/* extended self test time, see 05-359r1 */
+};
+
 static uint16_t scsi_d16(const uint8_t *buf)
 {
 	return	(((uint16_t) buf[0]) << 8) |
@@ -177,6 +197,116 @@ static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	args->input = 1;
 }
 
+static unsigned int msense_ctl_mode(uint8_t *buf)
+{
+	memcpy(buf, def_control_mpage, sizeof(def_control_mpage));
+	return sizeof(def_control_mpage);
+}
+
+static unsigned int msense_rw_recovery(uint8_t *buf)
+{
+	memcpy(buf, def_rw_recovery_mpage, sizeof(def_rw_recovery_mpage));
+	return sizeof(def_rw_recovery_mpage);
+}
+
+static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
+{
+	uint8_t *scsicmd = args->cdb, *p = rbuf;
+	const uint8_t blk_desc[] = {
+		0, 0, 0, 0,	/* number of blocks */
+		0,		/* density code */
+		0, 0x2, 0x0	/* block length: 512 bytes */
+	};
+	uint8_t pg, spg;
+	unsigned int ebd, page_control, six_byte;
+	uint8_t dpofua;
+
+	six_byte = (scsicmd[0] == MODE_SENSE);
+	ebd = !(scsicmd[1] & 0x8);      /* dbd bit inverted == edb */
+	/*
+	 * LLBA bit in msense(10) ignored (compliant)
+	 */
+
+	page_control = scsicmd[2] >> 6;
+	switch (page_control) {
+	case 0: /* current */
+		break;  /* supported */
+	case 3: /* saved */
+		goto saving_not_supp;
+	case 1: /* changeable */
+	case 2: /* defaults */
+	default:
+		goto invalid_fld;
+	}
+
+	if (six_byte)
+		p += 4 + (ebd ? 8 : 0);
+	else
+		p += 8 + (ebd ? 8 : 0);
+
+	pg = scsicmd[2] & 0x3f;
+	spg = scsicmd[3];
+	/*
+	 * No mode subpages supported (yet) but asking for _all_
+	 * subpages may be valid
+	 */
+	if (spg && (spg != ALL_SUB_MPAGES))
+		goto invalid_fld;
+
+	switch(pg) {
+	case RW_RECOVERY_MPAGE:
+		p += msense_rw_recovery(p);
+		break;
+
+	case CONTROL_MPAGE:
+		p += msense_ctl_mode(p);
+		break;
+
+	case ALL_MPAGES:
+		p += msense_rw_recovery(p);
+		p += msense_ctl_mode(p);
+		break;
+
+	default:		/* invalid page code */
+		goto invalid_fld;
+	}
+
+	dpofua = 0;
+
+	if (six_byte) {
+		rbuf[0] = p - rbuf - 1;
+		rbuf[2] |= dpofua;
+		if (ebd) {
+			rbuf[3] = sizeof(blk_desc);
+			memcpy(rbuf + 4, blk_desc, sizeof(blk_desc));
+		}
+	} else {
+		unsigned int output_len = p - rbuf - 2;
+
+		rbuf[0] = output_len >> 8;
+		rbuf[1] = output_len;
+		rbuf[3] |= dpofua;
+		if (ebd) {
+			rbuf[7] = sizeof(blk_desc);
+			memcpy(rbuf + 8, blk_desc, sizeof(blk_desc));
+		}
+	}
+
+	args->length = p - rbuf;
+	args->input = 1;
+	return;
+
+invalid_fld:
+	scsierr_inval(args, rbuf);
+	return;
+
+saving_not_supp:
+	 /* "Saving parameters not supported" */
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_fill(false, rbuf, SKEY_ILLEGAL_REQUEST, 0x39, 0x0);
+	return;
+}
+
 static void scsiop_read_cap(struct iscsi_scsi_cmd_args *args, uint8_t *buf,
 			    bool short_form)
 {
@@ -272,6 +402,11 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			scsierr_opcode(args, buf);
 			break;
 		}
+		break;
+
+	case MODE_SENSE:
+	case MODE_SENSE_10:
+		scsiop_mode_sense(args, buf);
 		break;
 
 	case READ_CAPACITY:

@@ -41,7 +41,7 @@ enum {
 	MODE_SELECT_6		= 0x15,
 	RESERVE_6		= 0x16,
 	RELEASE_6		= 0x17,
-	MODE_SENSE_6		= 0x1a,
+	MODE_SENSE		= 0x1a,
 	STOP_START_UNIT		= 0x1b,
 	SEND_DIAGNOSTIC		= 0x1d,
 	READ_CAPACITY		= 0x25,
@@ -178,5 +178,13 @@ enum {
 	TYPE_DISK		= 0x00,
 };
 
+#define RW_RECOVERY_MPAGE 0x1
+#define RW_RECOVERY_MPAGE_LEN 12
+#define CACHE_MPAGE 0x8
+#define CACHE_MPAGE_LEN 20
+#define CONTROL_MPAGE 0xa
+#define CONTROL_MPAGE_LEN 12
+#define ALL_MPAGES 0x3f
+#define ALL_SUB_MPAGES 0xff
 
 #endif /* !SCSI_CMD_CODES_H_ */
