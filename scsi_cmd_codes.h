@@ -164,4 +164,10 @@ enum {
 	SKEY_MISCOMPARE		= 0x0e,
 };
 
+/* peripheral device types */
+enum {
+	TYPE_DISK		= 0x00,
+};
+
+
 #endif /* !SCSI_CMD_CODES_H_ */

@@ -51,6 +51,7 @@
 
 #define ISCSI_VENDOR	"Bowzer"
 #define ISCSI_PRODUCT	"Bowzer iSCSI"
+#define ISCSI_FWREV	"0.00"
 #define ISCSI_VERSION	0
 
 /*
