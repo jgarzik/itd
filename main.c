@@ -75,6 +75,61 @@ static uint32_t scsi_d32(const uint8_t *buf)
 		(((uint32_t) buf[3]));
 }
 
+static void scsi_6_lba_len(const uint8_t *cdb, uint64_t *plba, uint32_t *plen)
+{
+	uint64_t lba = 0;
+	uint32_t len;
+
+	lba |= ((uint64_t)(cdb[1] & 0x1f)) << 16;
+	lba |= ((uint64_t)cdb[2]) << 8;
+	lba |= ((uint64_t)cdb[3]);
+
+	len = cdb[4];
+
+	*plba = lba;
+	*plen = len;
+}
+
+static void scsi_10_lba_len(const uint8_t *cdb, uint64_t *plba, uint32_t *plen)
+{
+	uint64_t lba = 0;
+	uint32_t len = 0;
+
+	lba |= ((uint64_t)cdb[2]) << 24;
+	lba |= ((uint64_t)cdb[3]) << 16;
+	lba |= ((uint64_t)cdb[4]) << 8;
+	lba |= ((uint64_t)cdb[5]);
+
+	len |= ((uint32_t)cdb[7]) << 8;
+	len |= ((uint32_t)cdb[8]);
+
+	*plba = lba;
+	*plen = len;
+}
+
+static void scsi_16_lba_len(const uint8_t *cdb, uint64_t *plba, uint32_t *plen)
+{
+	uint64_t lba = 0;
+	uint32_t len = 0;
+
+	lba |= ((uint64_t)cdb[2]) << 56;
+	lba |= ((uint64_t)cdb[3]) << 48;
+	lba |= ((uint64_t)cdb[4]) << 40;
+	lba |= ((uint64_t)cdb[5]) << 32;
+	lba |= ((uint64_t)cdb[6]) << 24;
+	lba |= ((uint64_t)cdb[7]) << 16;
+	lba |= ((uint64_t)cdb[8]) << 8;
+	lba |= ((uint64_t)cdb[9]);
+
+	len |= ((uint32_t)cdb[10]) << 24;
+	len |= ((uint32_t)cdb[11]) << 16;
+	len |= ((uint32_t)cdb[12]) << 8;
+	len |= ((uint32_t)cdb[13]);
+
+	*plba = lba;
+	*plen = len;
+}
+
 static int sense_fill(bool desc, uint8_t *buf, uint8_t key,
 		      uint8_t asc, uint8_t ascq)
 {
@@ -209,7 +264,8 @@ static unsigned int msense_rw_recovery(uint8_t *buf)
 	return sizeof(def_rw_recovery_mpage);
 }
 
-static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
+static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
+			      bool six_byte)
 {
 	uint8_t *scsicmd = args->cdb, *p = rbuf;
 	const uint8_t blk_desc[] = {
@@ -218,10 +274,9 @@ static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
 		0, 0x2, 0x0	/* block length: 512 bytes */
 	};
 	uint8_t pg, spg;
-	unsigned int ebd, page_control, six_byte;
+	unsigned int ebd, page_control;
 	uint8_t dpofua;
 
-	six_byte = (scsicmd[0] == MODE_SENSE);
 	ebd = !(scsicmd[1] & 0x8);      /* dbd bit inverted == edb */
 	/*
 	 * LLBA bit in msense(10) ignored (compliant)
@@ -357,6 +412,45 @@ err_out:
 	scsierr_inval(args, buf);
 }
 
+static void scsiop_data_xfer(struct target_session *sess,
+			     struct iscsi_scsi_cmd_args *args, uint8_t *buf,
+			     bool is_write, int byte_size)
+{
+	uint8_t *cdb = args->cdb;
+	uint64_t lba = 0;
+	uint32_t len = 0;
+
+	switch (byte_size) {
+	case 6:		scsi_6_lba_len(cdb, &lba, &len); break;
+	case 10:	scsi_10_lba_len(cdb, &lba, &len); break;
+	case 16:	scsi_16_lba_len(cdb, &lba, &len); break;
+	}
+
+	if ((len > data_mem_lba) ||
+	    ((lba + len) > data_mem_lba) ||
+	    ((lba + len) < lba))
+		goto err_out;
+
+	args->send_data = data_mem + (lba * data_lba_size);
+
+	if (is_write) {
+		struct iovec sg;
+
+		sg.iov_base = args->send_data;
+		sg.iov_len = MIN(args->trans_len, len * data_lba_size);
+
+		if (target_transfer_data(sess, args, &sg, 1)) {
+			/* FIXME: handle failure... */
+		}
+	} else
+		args->input = 1;
+
+	return;
+
+err_out:
+	scsierr_inval(args, buf);
+}
+
 int device_command(struct target_session *sess, struct target_cmd *tc)
 {
 	struct iscsi_scsi_cmd_args *args = tc->scsi_cmd;
@@ -412,8 +506,11 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 
 	case MODE_SENSE:
+		scsiop_mode_sense(args, buf, true);
+		break;
+
 	case MODE_SENSE_10:
-		scsiop_mode_sense(args, buf);
+		scsiop_mode_sense(args, buf, false);
 		break;
 
 	case READ_CAPACITY:
@@ -451,6 +548,30 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			scsierr_opcode(args, buf);
 			break;
 		}
+		break;
+
+	case READ_6:
+		scsiop_data_xfer(sess, args, buf, false, 6);
+		break;
+
+	case READ_10:
+		scsiop_data_xfer(sess, args, buf, false, 10);
+		break;
+
+	case READ_16:
+		scsiop_data_xfer(sess, args, buf, false, 16);
+		break;
+
+	case WRITE_6:
+		scsiop_data_xfer(sess, args, buf, true, 6);
+		break;
+
+	case WRITE_10:
+		scsiop_data_xfer(sess, args, buf, true, 10);
+		break;
+
+	case WRITE_16:
+		scsiop_data_xfer(sess, args, buf, true, 16);
 		break;
 
 	case PREFETCH_10:
