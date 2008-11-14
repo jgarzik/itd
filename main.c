@@ -29,7 +29,11 @@
 #include "parameters.h"
 #include "scsi_cmd_codes.h"
 
-uint32_t        iscsi_debug_level = 0;
+uint32_t iscsi_debug_level = 0;
+
+void *data_mem = NULL;
+uint32_t data_mem_lba;
+uint32_t data_lba_size;
 
 static GServer *tcp_srv;
 
@@ -153,6 +157,26 @@ static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	args->input = 1;
 }
 
+static void scsiop_read_cap(struct iscsi_scsi_cmd_args *args, uint8_t *buf,
+			    bool short_form)
+{
+	uint32_t *buf32 = (uint32_t *) buf;
+
+	if (short_form) {
+		buf32[0] = htonl(data_mem_lba - 1);
+		buf32[1] = htonl(data_lba_size);
+
+		args->length = 4 * 2;
+	} else {
+		*((uint64_t *)buf) = GUINT64_TO_BE((uint64_t)data_mem_lba - 1);
+		buf32[2] = htonl(data_lba_size);
+
+		args->length = 4 * 3;
+	}
+
+	args->input = 1;
+}
+
 static void scsiop_report_luns(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 {
 	uint32_t *buf32 = (uint32_t *) buf;
@@ -197,6 +221,14 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	memset(buf, 0, sizeof(sess->outbuf));
 
 	switch (cdb[0]) {
+	case FORMAT_UNIT:
+		/* format, iff FMTDATA, CMPLST and defect list format == 0 */
+		if ((cdb[1] & 0x1f) == 0)
+			memset(data_mem, 0, data_mem_lba * data_lba_size);
+		else
+			goto err_inval;
+		break;
+
 	case INQUIRY:
 		if (!(cdb[1] & (1 << 0)))		/* EVPD set? */
 			scsiop_inquiry_std(args, buf);
@@ -207,10 +239,8 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		else if (cdb[2] == 0x83)
 			scsiop_inquiry_devid(args, buf);
 
-		else {
-			args->status = SCSI_CHECK_CONDITION;
-			args->length = sense_inval_field(false, buf);
-		}
+		else
+			goto err_inval;
 		break;
 
 	case MAINTENANCE_IN:
@@ -220,12 +250,12 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			break;
 
 		default:
-			/* unknown SCSI opcode */
-			args->status = SCSI_CHECK_CONDITION;
-			args->length = sense_fill(false, buf,
-					SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
-			break;
+			goto err_opcode;
 		}
+		break;
+
+	case READ_CAPACITY:
+		scsiop_read_cap(args, buf, true);
 		break;
 
 	case REPORT_LUNS:
@@ -237,18 +267,35 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		args->input = 1;
 		break;
 
+	case SERVICE_ACTION_IN:
+		switch (cdb[1] & 0x1f) {	/* service action */
+		case SAI_READ_CAPACITY_16:
+			scsiop_read_cap(args, buf, false);
+			break;
+
+		default:
+			goto err_opcode;
+		}
+		break;
+
 	case TEST_UNIT_READY:
 		/* do nothing - success */
 		break;
 
 	default:
-		/* unknown SCSI opcode */
-		args->status = SCSI_CHECK_CONDITION;
-		args->length =
-			sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
-		break;
+		goto err_opcode;
 	}
 
+	return rc;
+
+err_inval:		/* invalid field in CDB */
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_inval_field(false, buf);
+	return rc;
+
+err_opcode:		/* unknown SCSI opcode */
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
 	return rc;
 }
 
@@ -288,6 +335,18 @@ static void master_iscsi_exit(void)
 	target_shutdown(&gbls);
 }
 
+static int mem_init(void)
+{
+	data_lba_size = 512;
+	data_mem_lba = (100 * 1024 * 1024) / data_lba_size;
+
+	data_mem = calloc(1, data_mem_lba * data_lba_size);
+	if (!data_mem)
+		return -1;
+	
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	GMainLoop      *ml;
@@ -296,6 +355,8 @@ int main(int argc, char *argv[])
 	if (!ml)
 		return 1;
 
+	if (mem_init())
+		return 1;
 	if (net_init())
 		return 1;
 	if (master_iscsi_init())
