@@ -41,6 +41,12 @@ static struct globals gbls = {
 	.port = 3260,
 };
 
+static uint16_t scsi_d16(const uint8_t *buf)
+{
+	return	(((uint16_t) buf[0]) << 8) |
+		(((uint16_t) buf[1]));
+}
+
 static uint32_t scsi_d32(const uint8_t *buf)
 {
 	return	(((uint32_t) buf[0]) << 24) |
@@ -279,6 +285,12 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	case REQUEST_SENSE:
 		args->length = sense_fill(cdb[1] & (1 << 0), buf, 0, 0, 0);
 		args->input = 1;
+		break;
+
+	case SEND_DIAGNOSTIC:
+		/* default test immediately succeeds. all others invalid. */
+		if (scsi_d16(cdb + 3) || !(cdb[1] & (1 << 2)))
+			scsierr_inval(args, buf);
 		break;
 
 	case SERVICE_ACTION_IN:

@@ -43,6 +43,7 @@ enum {
 	RELEASE_6		= 0x17,
 	MODE_SENSE_6		= 0x1a,
 	STOP_START_UNIT		= 0x1b,
+	SEND_DIAGNOSTIC		= 0x1d,
 	READ_CAPACITY		= 0x25,
 	READ_10			= 0x28,
 	WRITE_10		= 0x2a,
