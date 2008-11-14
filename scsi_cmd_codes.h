@@ -33,6 +33,7 @@
 
 enum {
 	TEST_UNIT_READY		= 0x00,
+	REQUEST_SENSE		= 0x03,
 	READ_6			= 0x08,
 	WRITE_6			= 0x0a,
 	INQUIRY			= 0x12,
@@ -55,6 +56,9 @@ enum {
 	PERSISTENT_RESERVE_IN	= 0x5e,
 	PERSISTENT_RESERVE_OUT	= 0x5f,
 	REPORT_LUNS		= 0xa0,
+	MAINTENANCE_IN		= 0xa3,
+
+	SAI_SUPPORTED_TMF	= 0x0d,
 };
 
 #define SIX_BYTE_COMMAND(op)	((op) <= 0x1f)

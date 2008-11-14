@@ -37,6 +37,14 @@ static struct globals gbls = {
 	.port = 3260,
 };
 
+static uint32_t scsi_d32(const uint8_t *buf)
+{
+	return	(((uint32_t) buf[0]) << 24) |
+		(((uint32_t) buf[1]) << 16) |
+		(((uint32_t) buf[2]) << 8) |
+		(((uint32_t) buf[3]));
+}
+
 static int sense_fill(bool desc, uint8_t *buf, uint8_t key,
 		      uint8_t asc, uint8_t ascq)
 {
@@ -153,6 +161,27 @@ static void scsiop_report_luns(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	args->input = 1;
 }
 
+static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+{
+	uint8_t *cdb = args->cdb;
+	uint32_t alloc_len;
+
+	alloc_len = scsi_d32(cdb + 6);
+	if (alloc_len < 4)
+		goto err_out;
+
+	/* we support no TMFs at present; leave data zeroed */
+
+	args->length = 4;
+	args->input = 1;
+
+	return;
+
+err_out:
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_inval_field(false, buf);
+}
+
 int device_command(struct target_session *sess, struct target_cmd *tc)
 {
 	struct iscsi_scsi_cmd_args *args = tc->scsi_cmd;
@@ -179,8 +208,27 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		}
 		break;
 
+	case MAINTENANCE_IN:
+		switch (cdb[1] & 0x1f) {	/* service action */
+		case SAI_SUPPORTED_TMF:
+			scsiop_supported_tmf(args, buf);
+			break;
+
+		default:
+			/* unknown SCSI opcode */
+			args->status = SCSI_CHECK_CONDITION;
+			args->length = sense_fill(false, buf,
+					SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
+			break;
+		}
+		break;
 	case REPORT_LUNS:
 		scsiop_report_luns(args, buf);
+		break;
+
+	case REQUEST_SENSE:
+		args->length = sense_fill(cdb[1] & (1 << 0), buf, 0, 0, 0);
+		args->input = 1;
 		break;
 
 	case TEST_UNIT_READY:
