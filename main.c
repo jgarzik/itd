@@ -81,6 +81,20 @@ static int sense_inval_field(bool desc, uint8_t *buf)
 	return sense_fill(desc, buf, SKEY_ILLEGAL_REQUEST, 0x24, 0x0);
 }
 
+static void scsierr_inval(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+{
+	/* invalid field in CDB */
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_inval_field(false, buf);
+}
+
+static void scsierr_opcode(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+{
+	/* unknown SCSI opcode */
+	args->status = SCSI_CHECK_CONDITION;
+	args->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
+}
+
 int device_init(struct globals *a, targv_t * b, struct disc_target *c)
 {
 	return -1;
@@ -204,8 +218,7 @@ static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	return;
 
 err_out:
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_inval_field(false, buf);
+	scsierr_inval(args, buf);
 }
 
 int device_command(struct target_session *sess, struct target_cmd *tc)
@@ -226,7 +239,7 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		if ((cdb[1] & 0x1f) == 0)
 			memset(data_mem, 0, data_mem_lba * data_lba_size);
 		else
-			goto err_inval;
+			scsierr_inval(args, buf);
 		break;
 
 	case INQUIRY:
@@ -240,7 +253,7 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			scsiop_inquiry_devid(args, buf);
 
 		else
-			goto err_inval;
+			scsierr_inval(args, buf);
 		break;
 
 	case MAINTENANCE_IN:
@@ -250,7 +263,8 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			break;
 
 		default:
-			goto err_opcode;
+			scsierr_opcode(args, buf);
+			break;
 		}
 		break;
 
@@ -274,7 +288,8 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			break;
 
 		default:
-			goto err_opcode;
+			scsierr_opcode(args, buf);
+			break;
 		}
 		break;
 
@@ -283,19 +298,10 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 
 	default:
-		goto err_opcode;
+		scsierr_opcode(args, buf);
+		break;
 	}
 
-	return rc;
-
-err_inval:		/* invalid field in CDB */
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_inval_field(false, buf);
-	return rc;
-
-err_opcode:		/* unknown SCSI opcode */
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
 	return rc;
 }
 
