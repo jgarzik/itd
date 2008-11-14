@@ -288,7 +288,7 @@ int param_atoi(struct iscsi_parameter *head, const char *key)
 		if (strcmp(ptr->key, key) == 0) {
 			if (ptr->value_l) {
 				if ((value = param_val(head, key)) != NULL) {
-					return iscsi_atoi(value);
+					return atoi(value);
 				} else {
 					iscsi_trace_error(__FILE__, __LINE__,
 							  "value is NULL\n");
@@ -1155,8 +1155,8 @@ binary_or:
 
 		case ISCSI_PARAM_TYPE_NUMERICAL:
 numerical:
-			offer_i = iscsi_atoi(param->offer_rx);
-			max_i = iscsi_atoi(param->valid);
+			offer_i = atoi(param->offer_rx);
+			max_i = atoi(param->valid);
 			if (param->type == ISCSI_PARAM_TYPE_NUMERICAL_Z) {
 				if (max_i == 0) {
 					answer_i = offer_i;	/* we support anything,
@@ -1291,8 +1291,8 @@ numerical_negotiate:
 				strlcpy(val2, param->offer_tx,
 					ISCSI_PARAM_MAX_LEN);
 			}
-			val1_i = iscsi_atoi(val1);
-			val2_i = iscsi_atoi(val2);
+			val1_i = atoi(val1);
+			val2_i = atoi(val2);
 			if (param->type == ISCSI_PARAM_TYPE_NUMERICAL_Z) {
 				if (val1_i == 0) {
 					negotiated_i = val2_i;

@@ -113,8 +113,8 @@ static GList   *session_list;
  * Private Functions *
  *********************/
 
-static char    *get_iqn(struct target_session *sess, int t, char *buf,
-			size_t size)
+static char *get_iqn(const struct target_session *sess, int t, char *buf,
+		     size_t size)
 {
 	if (sess->globals->tv->v[t].iqn != NULL) {
 		strlcpy(buf, sess->globals->tv->v[t].iqn, size);
@@ -125,7 +125,7 @@ static char    *get_iqn(struct target_session *sess, int t, char *buf,
 	return buf;
 }
 
-static int reject_t(struct target_session *sess, uint8_t * header,
+static int reject_t(struct target_session *sess, const uint8_t * header,
 		    uint8_t reason)
 {
 	struct iscsi_reject reject;
@@ -155,7 +155,7 @@ static int reject_t(struct target_session *sess, uint8_t * header,
 	return 0;
 }
 
-static int scsi_command_t(struct target_session *sess, uint8_t * header)
+static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 {
 	struct target_cmd cmd;
 	struct iscsi_scsi_cmd_args scsi_cmd;
@@ -529,7 +529,7 @@ response:
 	return 0;
 }
 
-static int task_command_t(struct target_session *sess, uint8_t * header)
+static int task_command_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_task_cmd cmd;
 	struct iscsi_task_rsp rsp;
@@ -600,7 +600,7 @@ static int task_command_t(struct target_session *sess, uint8_t * header)
 	return 0;
 }
 
-static int nop_out_t(struct target_session *sess, uint8_t * header)
+static int nop_out_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_nop_out_args nop_out;
 
@@ -665,7 +665,7 @@ static int nop_out_t(struct target_session *sess, uint8_t * header)
  * text_command_t
  */
 
-static int text_command_t(struct target_session *sess, uint8_t * header)
+static int text_command_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_text_cmd_args text_cmd;
 	struct iscsi_text_rsp_args text_rsp;
@@ -852,7 +852,7 @@ static int find_target_tsih(struct globals *globals, int tsih)
  * login_command_t() handles login requests and replies.
  */
 
-static int login_command_t(struct target_session *sess, uint8_t * header)
+static int login_command_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_login_cmd_args cmd;
 	struct iscsi_login_rsp_args rsp;
@@ -1137,7 +1137,7 @@ response:
 	return 0;
 }
 
-static int logout_command_t(struct target_session *sess, uint8_t * header)
+static int logout_command_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_logout_cmd_args cmd;
 	struct iscsi_logout_rsp_args rsp;
@@ -1207,7 +1207,7 @@ static int logout_command_t(struct target_session *sess, uint8_t * header)
 	return 0;
 }
 
-static int verify_cmd_t(struct target_session *sess, uint8_t * header)
+static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 {
 	int             op = ISCSI_OPCODE(header);
 
@@ -1258,7 +1258,7 @@ static int verify_cmd_t(struct target_session *sess, uint8_t * header)
  * this function looks at the opcode in the received header for the session,
  * and does a switch on the opcode to call the required function.
  */
-static int execute_t(struct target_session *sess, uint8_t * header)
+static int execute_t(struct target_session *sess, const uint8_t *header)
 {
 	int             op = ISCSI_OPCODE(header);
 

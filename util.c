@@ -327,16 +327,6 @@ iscsi_sock_send_header_and_data(GConn * conn,
  * Misc. Functions
  */
 
-uint32_t iscsi_atoi(char *value)
-{
-	if (value == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_atoi() called with NULL value\n");
-		return 0;
-	}
-	return atoi(value);
-}
-
 static const char HexString[] = "0123456789abcdef";
 
 /* get the hex value (subscript) of the character */

@@ -267,7 +267,8 @@ static unsigned int msense_rw_recovery(uint8_t *buf)
 static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
 			      bool six_byte)
 {
-	uint8_t *scsicmd = args->cdb, *p = rbuf;
+	const uint8_t *scsicmd = args->cdb;
+	uint8_t *p = rbuf;
 	const uint8_t blk_desc[] = {
 		0, 0, 0, 0,	/* number of blocks */
 		0,		/* density code */
@@ -394,7 +395,7 @@ static void scsiop_report_luns(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 
 static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 {
-	uint8_t *cdb = args->cdb;
+	const uint8_t *cdb = args->cdb;
 	uint32_t alloc_len;
 
 	alloc_len = scsi_d32(cdb + 6);
@@ -416,7 +417,7 @@ static void scsiop_data_xfer(struct target_session *sess,
 			     struct iscsi_scsi_cmd_args *args, uint8_t *buf,
 			     bool is_write, int byte_size)
 {
-	uint8_t *cdb = args->cdb;
+	const uint8_t *cdb = args->cdb;
 	uint64_t lba = 0;
 	uint32_t len = 0;
 
@@ -454,7 +455,8 @@ err_out:
 int device_command(struct target_session *sess, struct target_cmd *tc)
 {
 	struct iscsi_scsi_cmd_args *args = tc->scsi_cmd;
-	uint8_t *buf, *cdb = args->cdb;
+	const uint8_t *cdb = args->cdb;
+	uint8_t *buf;
 	int rc = 0;
 
 	args->status = SCSI_SUCCESS;

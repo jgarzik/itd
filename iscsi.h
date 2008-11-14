@@ -159,7 +159,7 @@ struct iscsi_task_cmd {
 	uint32_t        ExpDataSN;
 };
 
-int             iscsi_task_cmd_decap(uint8_t * header,
+int             iscsi_task_cmd_decap(const uint8_t *header,
 				     struct iscsi_task_cmd *cmd);
 
 /*
@@ -207,7 +207,7 @@ struct iscsi_nop_out_args {
 	const uint8_t  *data;
 };
 
-int             iscsi_nop_out_decap(uint8_t * header,
+int             iscsi_nop_out_decap(const uint8_t * header,
 				    struct iscsi_nop_out_args *cmd);
 
 /*
@@ -244,7 +244,7 @@ struct iscsi_text_cmd_args {
 	char           *text;
 };
 
-int             iscsi_text_cmd_decap(uint8_t * header,
+int             iscsi_text_cmd_decap(const uint8_t * header,
 				     struct iscsi_text_cmd_args *cmd);
 
 /*
@@ -288,7 +288,7 @@ struct iscsi_login_cmd_args {
 	char           *text;
 };
 
-int             iscsi_login_cmd_decap(uint8_t * header,
+int             iscsi_login_cmd_decap(const uint8_t * header,
 				      struct iscsi_login_cmd_args *cmd);
 
 /*
@@ -330,7 +330,7 @@ struct iscsi_logout_cmd_args {
 	uint32_t        ExpStatSN;
 };
 
-int             iscsi_logout_cmd_decap(uint8_t * header,
+int             iscsi_logout_cmd_decap(const uint8_t * header,
 				       struct iscsi_logout_cmd_args *cmd);
 
 /*
@@ -368,7 +368,7 @@ struct iscsi_scsi_cmd_args {
 	uint32_t        bidi_trans_len;
 	uint32_t        CmdSN;
 	uint32_t        ExpStatSN;
-	uint8_t        *cdb;
+	const uint8_t	*cdb;
 	uint8_t        *ext_cdb;
 	uint8_t        *ahs;
 	uint8_t         ahs_len;
@@ -381,7 +381,7 @@ struct iscsi_scsi_cmd_args {
 	uint32_t        bytes_recv;
 };
 
-int             iscsi_scsi_cmd_decap(uint8_t * header,
+int             iscsi_scsi_cmd_decap(const uint8_t * header,
 				     struct iscsi_scsi_cmd_args *cmd);
 
 /*
@@ -444,7 +444,7 @@ struct iscsi_write_data {
 	uint32_t        offset;
 };
 
-int             iscsi_write_data_decap(uint8_t * header,
+int             iscsi_write_data_decap(const uint8_t * header,
 				       struct iscsi_write_data *cmd);
 
 /*

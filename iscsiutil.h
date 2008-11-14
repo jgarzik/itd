@@ -181,7 +181,6 @@ if ((V1)==(V2)) {                                                    \
  * Misc. Functions
  */
 
-extern uint32_t iscsi_atoi(char *);
 extern int      HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
 extern int      HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
 extern void     GenRandomData(uint8_t *, uint32_t);
