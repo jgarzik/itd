@@ -287,6 +287,12 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		args->input = 1;
 		break;
 
+	case SEEK_10:
+		/* provided a valid range, seek is a no-op */
+		if (scsi_d32(cdb + 2) >= data_mem_lba)
+			scsierr_inval(args, buf);
+		break;
+
 	case SEND_DIAGNOSTIC:
 		/* default test immediately succeeds. all others invalid. */
 		if (scsi_d16(cdb + 3) || !(cdb[1] & (1 << 2)))
