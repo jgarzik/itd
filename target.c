@@ -303,8 +303,10 @@ static int scsi_command_t(struct target_session *sess, uint8_t * header)
 		scsi_cmd.send_data = sess->buff;
 	}
 	scsi_cmd.input = 0;
+
+	memset(&cmd, 0, sizeof(cmd));
 	cmd.scsi_cmd = &scsi_cmd;
-	cmd.callback = NULL;
+
 	if (device_command(sess, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "device_command() failed\n");

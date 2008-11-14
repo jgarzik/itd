@@ -178,14 +178,15 @@ struct target_session {
 	struct globals *globals;
 	struct iscsi_parameter *params;
 	struct iscsi_sess_param sess_params;
-	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	int             address_family;
 	int32_t         last_tsih;
 	enum session_read_state readst;
-	uint8_t         header[ISCSI_HEADER_LEN];
 	uint8_t        *ahs;
 	int             ahs_len;
 	struct session_xfer xfer;
+	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
+	uint8_t         header[ISCSI_HEADER_LEN];
+	uint8_t		outbuf[512];
 };
 
 struct target_cmd {
