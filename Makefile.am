@@ -7,7 +7,7 @@ INCLUDES	= @GNET_CFLAGS@
 sbin_PROGRAMS	= itd
 
 itd_SOURCES	= \
-	iscsiutil.h iscsi.h parameters.h target.h	\
+	scsi_cmd_codes.h iscsiutil.h iscsi.h parameters.h target.h	\
 	main.c iscsi.c target.c util.c parameters.c
 itd_LDADD	= @GNET_LIBS@ @CRYPTO_LIBS@
 

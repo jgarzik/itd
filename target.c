@@ -93,6 +93,7 @@
 #include "iscsi.h"
 #include "target.h"
 #include "parameters.h"
+#include "scsi_cmd_codes.h"
 
 enum {
 	TARGET_SHUT_DOWN = 0,
@@ -205,7 +206,7 @@ static int scsi_command_t(struct target_session *sess, uint8_t * header)
 				  "scsi_cmd.length (%u) > FirstBurstLength (%u)\n",
 				  scsi_cmd.length,
 				  sess->sess_params.first_burst);
-		scsi_cmd.status = 0x02;
+		scsi_cmd.status = SCSI_CHECK_CONDITION;
 		scsi_cmd.length = 0;
 		goto response;
 	}
@@ -1354,12 +1355,12 @@ read_data_pdu(struct target_session *sess,
 	/* Check args */
 	if (sess->sess_params.max_data_seg) {
 		if (data->length > sess->sess_params.max_data_seg) {
-			sess->xfer.status = 0x02;
+			sess->xfer.status = SCSI_CHECK_CONDITION;
 			return -1;
 		}
 	}
 	if ((sess->xfer.bytes_recv + data->length) > sess->xfer.trans_len) {
-		sess->xfer.status = 0x02;
+		sess->xfer.status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	if (data->tag != sess->xfer.tag) {
@@ -1367,7 +1368,7 @@ read_data_pdu(struct target_session *sess,
 			    "Data ITT (%d) does not match with command ITT (%d)\n",
 			    data->tag, sess->xfer.tag);
 		if (data->final) {
-			sess->xfer.status = 0x02;
+			sess->xfer.status = SCSI_CHECK_CONDITION;
 			return -1;
 		} else {
 			/* Send a reject PDU */
@@ -1463,7 +1464,7 @@ static int target_data_pdu(struct target_session *sess)
 		} else {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "read_data_pdu() failed\n");
-			sess->xfer.status = 0x02;
+			sess->xfer.status = SCSI_CHECK_CONDITION;
 			return -1;
 		}
 	}
@@ -1490,20 +1491,20 @@ static int target_data_pdu(struct target_session *sess)
 		  "Received unsolicited data (%d) more than first_burst (%d)\n",
 				  sess->xfer.bytes_recv,
 				  sess->sess_params.first_burst);
-		sess->xfer.status = 0x02;
+		sess->xfer.status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	if ((sess->xfer.desired_len != 0) && data.final) {
 		iscsi_trace_error(__FILE__, __LINE__,
 		  "Expecting more data (%d) from initiator for this sequence\n",
 				  sess->xfer.desired_len);
-		sess->xfer.status = 0x02;
+		sess->xfer.status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	if ((sess->xfer.desired_len == 0) && !data.final) {
 		iscsi_trace_error(__FILE__, __LINE__,
 		  "Final bit not set on the last data PDU of this sequence\n");
-		sess->xfer.status = 0x02;
+		sess->xfer.status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	if ((sess->xfer.desired_len == 0)
@@ -1534,7 +1535,7 @@ int target_transfer_data(struct target_session *sess,
 	if ((!sess->sess_params.immediate_data) && args->length) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "Cannot accept any Immediate data\n");
-		args->status = 0x02;
+		args->status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	/* Make a copy of the iovec */
@@ -1593,7 +1594,7 @@ int target_transfer_data(struct target_session *sess,
 			       args->trans_len) - sess->xfer.bytes_recv;
 
 	if (send_r2t(sess)) {
-		args->status = 0x02;
+		args->status = SCSI_CHECK_CONDITION;
 		TTD_CLEANUP;
 		return -1;
 	}
