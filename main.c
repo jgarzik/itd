@@ -379,17 +379,18 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 
 	case INQUIRY:
-		if (!(cdb[1] & (1 << 0)))		/* EVPD set? */
+		if (cdb[1] & (1 << 1))			/* CmdDt set? */
+			scsierr_inval(args, buf);
+
+		else if (!(cdb[1] & (1 << 0)))		/* EVPD clear? */
 			scsiop_inquiry_std(args, buf);
 
-		else if (cdb[2] == 0x00)
-			scsiop_inquiry_list(args, buf);
-
-		else if (cdb[2] == 0x83)
-			scsiop_inquiry_devid(args, buf);
-
 		else
-			scsierr_inval(args, buf);
+			switch (cdb[2]) {		/* EVPD page */
+			case 0x00:	scsiop_inquiry_list(args, buf); break;
+			case 0x83:	scsiop_inquiry_devid(args, buf); break;
+			default:	scsierr_inval(args, buf); break;
+			}
 		break;
 
 	case MAINTENANCE_IN:
@@ -402,6 +403,12 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 			scsierr_opcode(args, buf);
 			break;
 		}
+		break;
+
+	case MODE_SELECT_6:
+	case MODE_SELECT_10:
+		/* unconditionally return invalid-field-in-CDB */
+		scsierr_inval(args, buf);
 		break;
 
 	case MODE_SENSE:
@@ -446,6 +453,10 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		}
 		break;
 
+	case PREFETCH_10:
+	case PREFETCH_16:
+	case SYNC_CACHE:
+	case SYNC_CACHE_16:
 	case TEST_UNIT_READY:
 		/* do nothing - success */
 		break;
