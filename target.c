@@ -1643,10 +1643,6 @@ int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 	gp->state = TARGET_INITIALIZED;
 
 	printf("TARGET: TargetName is %s\n", gp->targetname);
-	for (i = 0; i < gp->sockc; i++) {
-		printf("\tsocket %d listening on port %hd\n", gp->sockv[i],
-		       gp->port);
-	}
 
 	return 0;
 }

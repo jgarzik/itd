@@ -127,16 +127,11 @@ enum {
 struct globals {
 	char            targetname[MAX_TGT_NAME_SIZE];	/* name of target */
 	uint16_t        port;	/* target port */
-	int             sock;	/* socket on which it's listening */
-	int             sockc;	/* # of live sockets on which it's listening */
-	int             sockv[MAXSOCK];	/* sockets on which it's listening */
-	int             famv[MAXSOCK];	/* address families */
 	int             state;	/* current state of target */
 	char            targetaddress[MAX_TGT_NAME_SIZE];	/* iSCSI TargetAddress */
 	targv_t        *tv;	/* array of target devices */
 	int             address_family;	/* global default IP address family */
 	int             max_sessions;	/* maximum number of sessions */
-	char            config_file[MAX_CONFIG_FILE_NAME];	/* config file name */
 	uint32_t        last_tsih;	/* the last TSIH that was used */
 };
 
@@ -162,7 +157,6 @@ enum session_read_state {
 struct target_session {
 	int             id;
 	int             d;
-	int             sock;
 	GConn          *conn;
 	uint16_t        cid;
 	uint32_t        StatSN;
