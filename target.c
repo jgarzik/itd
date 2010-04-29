@@ -1846,7 +1846,7 @@ int target_accept(struct globals *gp, GConn * conn)
 		 local, gp->port);
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "IPv4/6 cxn accepted (local IP %s, remote IP %s)\n",
-		    gp->port, local, sess->initiator);
+		    local, sess->initiator);
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "TargetAddress = \"%s\"\n", gp->targetaddress);
 
