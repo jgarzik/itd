@@ -18,11 +18,14 @@
  *
  */
 
+#include "itd-config.h"
+
 #include <glib.h>
 #include <gnet.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <netinet/in.h>
+#include <argp.h>
 
 #include "iscsi.h"
 #include "target.h"
@@ -38,8 +41,25 @@ uint32_t data_lba_size;
 static GServer *tcp_srv;
 
 static struct globals gbls = {
-	.port = 3260,
+	.port		= 3260,
 };
+
+const char *argp_program_version = PACKAGE_VERSION;
+
+static struct argp_option options[] = {
+	{ "debug", 'D', "LEVEL", 0,
+	  "Set debug output to LEVEL (0 = off, 2 = max)" },
+	{ "port", 'p', "PORT", 0,
+	  "Bind to TCP port PORT.  Default: 3290 (iSCSI IANA registered port)" },
+	{ }
+};
+
+static const char doc[] =
+PACKAGE_NAME " - iSCSI target daemon";
+
+static error_t parse_opt (int key, char *arg, struct argp_state *state);
+
+static const struct argp argp = { options, parse_opt, NULL, doc };
 
 static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
 	RW_RECOVERY_MPAGE,
@@ -639,9 +659,62 @@ static int mem_init(void)
 	return 0;
 }
 
+static error_t parse_opt (int key, char *arg, struct argp_state *state)
+{
+	int v;
+
+	switch(key) {
+	case 'D':
+		v = atoi(arg);
+		if (v < 0 || v > 2) {
+			fprintf(stderr, "invalid debug level: '%s'\n", arg);
+			argp_usage(state);
+		}
+
+		gbls.debug_level = v;
+		break;
+
+	case 'p':
+		/*
+		 * We do not permit "0" as an argument in order to be safer
+		 * against a malfunctioning jumpstart script or a simple
+		 * misunderstanding by a human operator.
+		 */
+		v = atoi(arg);
+		if (v > 0 && v < 65536) {
+			gbls.port = v;
+		} else {
+			fprintf(stderr, "invalid port: '%s'\n", arg);
+			argp_usage(state);
+		}
+		break;
+
+	case ARGP_KEY_ARG:
+		argp_usage(state);	/* too many args */
+		break;
+	case ARGP_KEY_END:
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	GMainLoop      *ml;
+	error_t aprc;
+
+	/*
+	 * parse command line
+	 */
+
+	aprc = argp_parse(&argp, argc, argv, 0, NULL, NULL);
+	if (aprc) {
+		fprintf(stderr, "argp_parse failed: %s\n", strerror(aprc));
+		return 1;
+	}
 
 	ml = g_main_loop_new(NULL, FALSE);
 	if (!ml)
