@@ -136,54 +136,47 @@ void
 iscsi_trace(const int trace, const char *f, const int line, const char *fmt,
 	    ...)
 {
-#ifdef CONFIG_ISCSI_DEBUG
 	va_list         vp;
 	char            buf[8192];
 
 	if (iscsi_debug_level & trace) {
 		va_start(vp, fmt);
 		vsnprintf(buf, sizeof(buf), fmt, vp);
-		printf("pid %d:%s:%d: %s", (int)getpid, f, line, buf);
+		printf("pid %ld:%s:%d: %s", (long) getpid(), f, line, buf);
 		va_end(vp);
 	}
-#endif
 }
 
 void iscsi_trace_warning(const char *f, const int line, const char *fmt, ...)
 {
-#ifdef CONFIG_ISCSI_DEBUG
 	va_list         vp;
 	char            buf[8192];
 
 	if (iscsi_debug_level & TRACE_WARN) {
 		va_start(vp, fmt);
 		vsnprintf(buf, sizeof(buf), fmt, vp);
-		printf("pid %d:%s:%d: ***WARNING*** %s",
-		       (int)getpid, f, line, buf);
+		printf("pid %ld:%s:%d: ***WARNING*** %s",
+		       (long) getpid(), f, line, buf);
 		va_end(vp);
 	}
-#endif
 }
 
 void iscsi_trace_error(const char *f, const int line, const char *fmt, ...)
 {
-#ifdef CONFIG_ISCSI_DEBUG
 	va_list         vp;
 	char            buf[8192];
 
 	va_start(vp, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, vp);
 	va_end(vp);
-	printf("pid %d:%s:%d: ***ERROR*** %s", (int)getpid, f, line, buf);
+	printf("pid %ld:%s:%d: ***ERROR*** %s", (long) getpid(), f, line, buf);
 #  ifdef HAVE_SYSLOG
-	syslog(LOG_ERR, "pid %d:%s:%d: ***ERROR*** %s", getpid, f, line, buf);
+	syslog(LOG_ERR, "pid %ld:%s:%d: ***ERROR*** %s", (long) getpid(), f, line, buf);
 #  endif /* HAVE_SYSLOG */
-#endif
 }
 
 void iscsi_print_buffer(uint8_t * buf, const size_t len)
 {
-#ifdef CONFIG_ISCSI_DEBUG
 	int             i;
 
 	if (iscsi_debug_level & TRACE_NET_BUFF) {
@@ -200,7 +193,6 @@ void iscsi_print_buffer(uint8_t * buf, const size_t len)
 			printf("\n");
 		}
 	}
-#endif
 }
 
 /*
@@ -270,7 +262,6 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 	iov[i].iov_len -= (len - length);
 	*iovc = i + 1;
 
-#ifdef CONFIG_ISCSI_DEBUG
 	iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__, "new iov:\n");
 	len = 0;
 	for (i = 0; i < *iovc; i++) {
@@ -281,7 +272,6 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 	}
 	iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__,
 		    "new iov length: %u bytes\n", len);
-#endif
 
 	return 0;
 }

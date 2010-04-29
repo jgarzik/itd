@@ -133,8 +133,6 @@ struct globals {
 	int             address_family;	/* global default IP address family */
 	int             max_sessions;	/* maximum number of sessions */
 	uint32_t        last_tsih;	/* the last TSIH that was used */
-
-	int		debug_level;
 };
 
 struct session_xfer {

@@ -47,8 +47,8 @@ static struct globals gbls = {
 const char *argp_program_version = PACKAGE_VERSION;
 
 static struct argp_option options[] = {
-	{ "debug", 'D', "LEVEL", 0,
-	  "Set debug output to LEVEL (0 = off, 2 = max)" },
+	{ "trace", 'T', "TRACE-LIST", 0,
+	  "Comma-separate list of one or more of: net, iscsi, scsi, osd, all" },
 	{ "port", 'p', "PORT", 0,
 	  "Bind to TCP port PORT.  Default: 3290 (iSCSI IANA registered port)" },
 	{ }
@@ -662,16 +662,17 @@ static int mem_init(void)
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	int v;
+	char *initial_str, *s;
 
 	switch(key) {
-	case 'D':
-		v = atoi(arg);
-		if (v < 0 || v > 2) {
-			fprintf(stderr, "invalid debug level: '%s'\n", arg);
-			argp_usage(state);
+	case 'T':
+		initial_str = arg;
+		while ((s = strtok(initial_str, ", ")) != NULL) {
+			set_debug(s);
+			initial_str = NULL;
 		}
-
-		gbls.debug_level = v;
+		fprintf(stderr, "New iSCSI tracing level: 0x%x\n",
+			iscsi_debug_level);
 		break;
 
 	case 'p':
