@@ -195,9 +195,11 @@ static void scsierr_opcode(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 	args->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
 }
 
+static int device_id;
+
 int device_init(struct globals *a, targv_t * b, struct disc_target *c)
 {
-	return -1;
+	return ++device_id;
 }
 
 static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
@@ -635,11 +637,27 @@ static void net_exit(void)
 	gnet_server_unref(tcp_srv);
 }
 
-static targv_t  tv_all[4];
+static targv_t tv;
 
 static int master_iscsi_init(void)
 {
-	return target_init(&gbls, tv_all, "MyFirstTarget");
+	targv_t *tvp = &tv;
+	char tgt[256] = "iqn.2010-04.us.yyz.bd.itd";
+	char iqn[256] = "iqn.2010-04.us.yyz.bd.itd:target0";
+
+	memset(&tv, 0, sizeof(tv));
+
+	ALLOC(struct disc_target, tvp->v, tvp->size, tvp->c, 14, 14,
+	      "master_iscsi_init", exit(EXIT_FAILURE));
+
+	tvp->v[tvp->c].de.type = DE_DEVICE;
+	tvp->v[tvp->c].de.u.dp = NULL;
+	tvp->v[tvp->c].target = strdup(tgt);
+	tvp->v[tvp->c].iqn = strdup(iqn);
+	tvp->v[tvp->c].mask = strdup("0/0");
+	tvp->c += 1;
+
+	return target_init(&gbls, tvp, tgt);
 }
 
 static void master_iscsi_exit(void)
