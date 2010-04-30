@@ -1605,6 +1605,9 @@ int target_transfer_data(struct target_session *sess,
 	}
 
 	/* initiate read of first data PDU */
+	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+		    "NET: queueing read of %u bytes\n",
+		    ISCSI_HEADER_LEN);
 	gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
 	sess->readst = srs_data_hdr;
 
@@ -1742,13 +1745,24 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 			sess->buff = NULL;
 			sess->ahs = NULL;
 
-			if (sess->readst == srs_data_hdr)
+			sess->readst = srs_basic_hdr;
+
+			if (readst == srs_data_hdr)
 				target_data_pdu(sess);
 			else
 				execute_t(sess, sess->header);
+
+			/* initiate read of next PDU */
+			iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+			    	"NET: queueing read of %u bytes\n",
+			    	ISCSI_HEADER_LEN);
+			gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
 			break;
 		}
 
+		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+			    "NET: queueing read of %u bytes\n",
+			    v + pad_len);
 		gnet_conn_readn(sess->conn, v + pad_len);
 		if (sess->readst == srs_data_hdr)
 			sess->readst = srs_data;
@@ -1775,6 +1789,10 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 		else
 			execute_t(sess, sess->header);
 
+		/* initiate read of next PDU */
+		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+			    "NET: queueing read of %u bytes\n",
+			    ISCSI_HEADER_LEN);
 		gnet_conn_readn(sess->conn, ISCSI_HEADER_LEN);
 		break;
 
@@ -1969,6 +1987,9 @@ int target_accept(struct globals *gp, GConn * conn)
 	/* Loop for commands */
 	gnet_conn_set_callback(conn, target_tcp_event, sess);
 
+	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+		    "NET: queueing read of %u bytes\n",
+		    ISCSI_HEADER_LEN);
 	gnet_conn_readn(conn, ISCSI_HEADER_LEN);
 	sess->readst = srs_basic_hdr;
 
