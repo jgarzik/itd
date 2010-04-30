@@ -77,10 +77,6 @@
 #include <errno.h>
 #endif
 
-#ifdef HAVE_PTHREAD_H
-#include <pthread.h>
-#endif
-
 #ifdef HAVE_STDARG_H
 #include <stdarg.h>
 #endif
