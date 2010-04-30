@@ -654,7 +654,8 @@ int iscsi_scsi_cmd_decap(const uint8_t * header, struct iscsi_scsi_cmd_args *cmd
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
 		    "ExpStatSN:         %u\n", cmd->ExpStatSN);
 	iscsi_trace(TRACE_ISCSI_ARGS, __FILE__, __LINE__,
-		    "CDB:               %#x\n", cmd->cdb[0]);
+		    "CDB:               %#x %s\n", cmd->cdb[0],
+		    				sopstr(cmd->cdb[0]));
 
 	return 0;
 }

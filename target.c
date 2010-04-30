@@ -171,8 +171,9 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 		return -1;
 	}
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "session %d: SCSI Command (CmdSN %u, op %#x)\n", sess->id,
-		    scsi_cmd.CmdSN, scsi_cmd.cdb[0]);
+		    "session %d: SCSI Command (CmdSN %u, op %#x %s)\n", sess->id,
+		    scsi_cmd.CmdSN,
+		    scsi_cmd.cdb[0], sopstr(scsi_cmd.cdb[0]));
 
 	/* For Non-immediate commands, the CmdSN should be between ExpCmdSN  */
 	/* and MaxCmdSN, inclusive of both.  Otherwise, ignore the command */
@@ -1782,6 +1783,20 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 	}
 }
 
+#if 0
+static const char *gnconn_str[] = 
+{
+	[GNET_CONN_ERROR] = "GNET_CONN_ERROR",
+	[GNET_CONN_CONNECT] = "GNET_CONN_CONNECT",
+	[GNET_CONN_CLOSE] = "GNET_CONN_CLOSE",
+	[GNET_CONN_TIMEOUT] = "GNET_CONN_TIMEOUT",
+	[GNET_CONN_READ] = "GNET_CONN_READ",
+	[GNET_CONN_WRITE] = "GNET_CONN_WRITE",
+	[GNET_CONN_READABLE] = "GNET_CONN_READABLE",
+	[GNET_CONN_WRITABLE] = "GNET_CONN_WRITABLE",
+};
+#endif
+
 static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 {
 	struct target_session *sess = user_data;
@@ -1799,6 +1814,12 @@ static void target_tcp_event(GConn * conn, GConnEvent * evt, gpointer user_data)
 	case GNET_CONN_READABLE:
 	case GNET_CONN_WRITABLE:
 		/* do nothing */
+
+#if 0
+		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
+			    "NET: event %s ignored\n",
+			    gnconn_str[evt->type]);
+#endif
 		break;
 	}
 }

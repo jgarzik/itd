@@ -138,6 +138,7 @@ extern void     iscsi_print_buffer(uint8_t *, const size_t);
  * Socket Abstraction
  */
 
+extern const char *sopstr(uint8_t op);
 extern void send_padding(GConn *conn, unsigned int len_out);
 extern int      iscsi_sock_send_header_and_data(GConn *,
 						const void *, unsigned,
