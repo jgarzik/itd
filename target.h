@@ -182,7 +182,7 @@ struct target_session {
 	enum session_read_state readst;
 	uint8_t        *ahs;
 	int             ahs_len;
-	int		data_len;
+	int		buff_len;
 
 	struct session_xfer xfer;
 

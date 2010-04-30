@@ -1735,8 +1735,8 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 		v = sess->ahs_len = buf[4];
 		buf[4] = 0;
 
-		sess->data_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
-		v += sess->data_len;
+		sess->buff_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
+		v += sess->buff_len;
 
 		if (v & 0x3)
 			pad_len = 4 - (v & 0x3);
