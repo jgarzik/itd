@@ -441,6 +441,7 @@ static void scsiop_data_xfer(struct target_session *sess,
 	const uint8_t *cdb = args->cdb;
 	uint64_t lba = 0;
 	uint32_t len = 0;
+	void *mem;
 
 	switch (byte_size) {
 	case 6:		scsi_6_lba_len(cdb, &lba, &len); break;
@@ -453,19 +454,21 @@ static void scsiop_data_xfer(struct target_session *sess,
 	    ((lba + len) < lba))
 		goto err_out;
 
-	args->send_data = data_mem + (lba * data_lba_size);
+	mem = data_mem + (lba * data_lba_size);
 
 	if (is_write) {
 		struct iovec sg;
 
-		sg.iov_base = args->send_data;
+		sg.iov_base = mem;
 		sg.iov_len = MIN(args->trans_len, len * data_lba_size);
 
 		if (target_transfer_data(sess, args, &sg, 1)) {
 			/* FIXME: handle failure... */
 		}
-	} else
+	} else {
 		args->input = 1;
+		args->send_data = mem;
+	}
 
 	return;
 
@@ -479,9 +482,25 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	const uint8_t *cdb = args->cdb;
 	uint8_t *buf;
 	int rc = 0;
+	bool is_write;
+
+	switch (cdb[0]) {
+	case WRITE_6:
+	case WRITE_10:
+	case WRITE_16:
+		is_write = true;
+		break;
+
+	default:
+		is_write = false;
+		break;
+	}
 
 	args->status = SCSI_SUCCESS;
-	args->length = 0;
+
+	if (!is_write)
+		args->length = 0;
+
 	args->send_data = buf = sess->outbuf;
 
 	memset(buf, 0, sizeof(sess->outbuf));
