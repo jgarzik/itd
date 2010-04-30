@@ -408,7 +408,8 @@ iscsi_sock_send_header_and_data(GConn * conn,
 	if (!iovc) {
 		iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
 			    "NET: writing %u data bytes\n", data_len);
-		gnet_conn_write(conn, (void *)data, data_len);
+		if (data_len > 0)
+			gnet_conn_write(conn, (void *)data, data_len);
 
 	} else {
 		struct iovec    iov[ISCSI_MAX_IOVECS];
@@ -422,7 +423,9 @@ iscsi_sock_send_header_and_data(GConn * conn,
 			iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
 				    "NET: writing %u bytes (iov %d)\n",
 				    data_len, i);
-			gnet_conn_write(conn, iov[i].iov_base, iov[i].iov_len);
+			if (iov[i].iov_len > 0)
+				gnet_conn_write(conn, iov[i].iov_base,
+						iov[i].iov_len);
 
 			data_len += iov[i].iov_len;
 		}
