@@ -280,6 +280,19 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 #define MAXSOCK	16
 #endif
 
+void send_padding(GConn *conn, unsigned int len_out)
+{
+	int i, pad_len;
+	char pad_buf[4] = { 0, 0, 0, 0 };
+
+	i = len_out & 0x3;
+	if (!i)
+		return;
+	
+	pad_len = 4 - i;
+	gnet_conn_write(conn, pad_buf, pad_len);
+}
+
 /*
  * Temporary Hack:
  *
@@ -295,20 +308,34 @@ iscsi_sock_send_header_and_data(GConn * conn,
 				const void *header, unsigned header_len,
 				const void *data, unsigned data_len, int iovc)
 {
+	iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
+		    "NET: writing %u header bytes\n", header_len);
 	gnet_conn_write(conn, (void *)header, header_len);
 
-	if (!iovc)
+	if (!iovc) {
+		iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
+			    "NET: writing %u data bytes\n", data_len);
 		gnet_conn_write(conn, (void *)data, data_len);
 
-	else {
+	} else {
 		struct iovec    iov[ISCSI_MAX_IOVECS];
 		int             i;
 
 		memcpy(&iov[0], data, sizeof(struct iovec) * iovc);
 
-		for (i = 0; i < iovc; i++)
+		data_len = 0;
+
+		for (i = 0; i < iovc; i++) {
+			iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
+				    "NET: writing %u bytes (iov %d)\n",
+				    data_len, i);
 			gnet_conn_write(conn, iov[i].iov_base, iov[i].iov_len);
+
+			data_len += iov[i].iov_len;
+		}
 	}
+
+	send_padding(conn, data_len);
 
 	return header_len + data_len;
 }

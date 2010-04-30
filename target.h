@@ -48,6 +48,11 @@
 #include "iscsiutil.h"
 #include "parameters.h"
 
+enum {
+	DE_EXTENT,
+	DE_DEVICE
+};
+
 /* a device can be made up of an extent or another device */
 struct disc_de {
 	int32_t         type;	/* device or extent */
@@ -177,7 +182,10 @@ struct target_session {
 	enum session_read_state readst;
 	uint8_t        *ahs;
 	int             ahs_len;
+	int		data_len;
+
 	struct session_xfer xfer;
+
 	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	uint8_t         header[ISCSI_HEADER_LEN];
 	uint8_t		outbuf[512];

@@ -813,8 +813,10 @@ static int text_command_t(struct target_session *sess, const uint8_t *header)
 
 	gnet_conn_write(sess->conn, (gchar *) rsp_header, ISCSI_HEADER_LEN);
 
-	if (len_out)
+	if (len_out) {
 		gnet_conn_write(sess->conn, text_out, len_out);
+		send_padding(sess->conn, len_out);
+	}
 
 	TC_CLEANUP;
 	return 0;
@@ -1716,9 +1718,10 @@ int target_shutdown(struct globals *gp)
 static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 {
 	uint8_t        *buf;
-	uint32_t        v;
+	uint32_t        v, pad_len = 0;
+	enum session_read_state readst = sess->readst;
 
-	switch (sess->readst) {
+	switch (readst) {
 	case srs_basic_hdr:
 	case srs_data_hdr:
 		buf = (uint8_t *) evt->buffer;
@@ -1728,7 +1731,11 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 		v = sess->ahs_len = buf[4];
 		buf[4] = 0;
 
-		v += ntohl(*((uint32_t *) (void *)(buf + 4)));	/* data len */
+		sess->data_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
+		v += sess->data_len;
+
+		if (v & 0x3)
+			pad_len = 4 - (v & 0x3);
 
 		if (!v) {	/* PDU is complete, nothing else to read */
 			sess->buff = NULL;
@@ -1741,7 +1748,7 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 			break;
 		}
 
-		gnet_conn_readn(sess->conn, v);
+		gnet_conn_readn(sess->conn, v + pad_len);
 		if (sess->readst == srs_data_hdr)
 			sess->readst = srs_data;
 		else
@@ -1762,7 +1769,7 @@ static void target_read_evt(struct target_session *sess, GConnEvent * evt)
 
 		sess->readst = srs_basic_hdr;
 
-		if (sess->readst == srs_data)
+		if (readst == srs_data)
 			target_data_pdu(sess);
 		else
 			execute_t(sess, sess->header);
