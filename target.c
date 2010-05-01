@@ -496,9 +496,11 @@ response:
 		/* Make sure all data was transferred */
 
 		if (scsi_cmd.output) {
+			scsi_cmd.bytes_recv = sess->xfer.bytes_recv;
 			RETURN_NOT_EQUAL("scsi_cmd.bytes_recv",
 					 scsi_cmd.bytes_recv,
 					 scsi_cmd.trans_len, AHS_CLEANUP, -1);
+
 			if (scsi_cmd.input) {
 				RETURN_NOT_EQUAL("scsi_cmd.bytes_sent",
 						 scsi_cmd.bytes_sent,
