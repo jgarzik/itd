@@ -189,6 +189,10 @@ enum {
 #define CACHE_MPAGE_LEN 20
 #define CONTROL_MPAGE 0xa
 #define CONTROL_MPAGE_LEN 12
+#define FMT_DEV_MPAGE 0x3
+#define FMT_DEV_MPAGE_LEN 0x18
+#define MEDIUM_TYPES_MPAGE 0xb
+#define MEDIUM_TYPES_MPAGE_LEN 0x8
 #define ALL_MPAGES 0x3f
 #define ALL_SUB_MPAGES 0xff
 

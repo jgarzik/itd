@@ -39,7 +39,10 @@ uint32_t iscsi_debug_level = 0;
 static bool server_running = true;
 void *data_mem = NULL;
 uint32_t data_mem_lba;
-uint32_t data_lba_size;
+
+enum {
+	data_lba_size	= 512,
+};
 
 static struct globals gbls = {
 	.port		= 3260,
@@ -75,9 +78,9 @@ static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
 static const uint8_t def_cache_mpage[CACHE_MPAGE_LEN] = {
 	CACHE_MPAGE,
 	CACHE_MPAGE_LEN - 2,
-	0,		/* contains WCE, needs to be 0 for logic */
+	(1 << 0),	/* RCD=1 */
 	0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0,		/* contains DRA, needs to be 0 for logic */
+	(1 << 5),	/* DRA=1 */
 	0, 0, 0, 0, 0, 0, 0
 };
 
@@ -88,6 +91,22 @@ static const uint8_t def_control_mpage[CONTROL_MPAGE_LEN] = {
 	0,	/* [QAM+QERR may be 1, see 05-359r1] */
 	0, 0, 0, 0, 0xff, 0xff,
 	0, 30	/* extended self test time, see 05-359r1 */
+};
+
+static const uint8_t def_fmt_dev_mpage[FMT_DEV_MPAGE_LEN] = {
+	FMT_DEV_MPAGE,
+	FMT_DEV_MPAGE_LEN - 2,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	data_lba_size >> 8, data_lba_size & 0xff,
+	0, 0, 0, 0, 0, 0, 
+	(1 << 6),	/* HSEC=1 */
+	0, 0, 0
+};
+
+static const uint8_t def_medium_types_mpage[MEDIUM_TYPES_MPAGE_LEN] = {
+	MEDIUM_TYPES_MPAGE,
+	MEDIUM_TYPES_MPAGE_LEN - 2,
+	0, 0, 0, 0, 0, 0
 };
 
 static uint16_t scsi_d16(const uint8_t *buf)
@@ -292,14 +311,25 @@ static unsigned int msense_ctl_mode(uint8_t *buf)
 static unsigned int msense_cache(uint8_t *buf)
 {
 	memcpy(buf, def_cache_mpage, sizeof(def_cache_mpage));
-	buf[12] |= (1 << 5);	/* DRA: disable read ahead */
 	return sizeof(def_cache_mpage);
+}
+
+static unsigned int msense_fmt_dev(uint8_t *buf)
+{
+	memcpy(buf, def_fmt_dev_mpage, sizeof(def_fmt_dev_mpage));
+	return sizeof(def_fmt_dev_mpage);
 }
 
 static unsigned int msense_rw_recovery(uint8_t *buf)
 {
 	memcpy(buf, def_rw_recovery_mpage, sizeof(def_rw_recovery_mpage));
 	return sizeof(def_rw_recovery_mpage);
+}
+
+static unsigned int msense_medium_types(uint8_t *buf)
+{
+	memcpy(buf, def_medium_types_mpage, sizeof(def_medium_types_mpage));
+	return sizeof(def_medium_types_mpage);
 }
 
 static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
@@ -352,6 +382,10 @@ static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
 		p += msense_rw_recovery(p);
 		break;
 
+	case FMT_DEV_MPAGE:
+		p += msense_fmt_dev(p);
+		break;
+
 	case CACHE_MPAGE:
 		p += msense_cache(p);
 		break;
@@ -360,10 +394,16 @@ static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
 		p += msense_ctl_mode(p);
 		break;
 
+	case MEDIUM_TYPES_MPAGE:
+		p += msense_medium_types(p);
+		break;
+
 	case ALL_MPAGES:
 		p += msense_rw_recovery(p);
+		p += msense_fmt_dev(p);
 		p += msense_cache(p);
 		p += msense_ctl_mode(p);
+		p += msense_medium_types(p);
 		break;
 
 	default:		/* invalid page code */
@@ -855,7 +895,6 @@ static void master_iscsi_exit(void)
 
 static int mem_init(void)
 {
-	data_lba_size = 512;
 	data_mem_lba = (100 * 1024 * 1024) / data_lba_size;
 
 	data_mem = calloc(1, data_mem_lba * data_lba_size);
