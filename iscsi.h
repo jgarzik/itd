@@ -43,15 +43,17 @@
 #ifndef ISCSI_H
 #define ISCSI_H
 
+#include "itd-config.h"
+
 #include "iscsiutil.h"
 
 /*
  * iSCSI Version 18
  */
 
-#define ISCSI_VENDOR	"Bowzer"
-#define ISCSI_PRODUCT	"Bowzer iSCSI"
-#define ISCSI_FWREV	"0.00"
+#define ISCSI_VENDOR	"Hail"
+#define ISCSI_PRODUCT	PACKAGE_NAME
+#define ISCSI_FWREV	PACKAGE_VERSION
 #define ISCSI_VERSION	0
 
 /*

@@ -17,7 +17,12 @@ dnl You should have received a copy of the GNU General Public License
 dnl along with this program; if not, write to the Free Software
 dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_INIT(itd, 0.1, [Jeff Garzik <jgarzik@pobox.com>])
+dnl Version is copied into SCSI 4-byte field, therefore, version must
+dnl ALWAYS be exactly four bytes in length.
+
+AC_INIT(itd, 0.01, [Jeff Garzik <jgarzik@pobox.com>])
+
+
 AC_PREREQ(2.52)
 AC_CONFIG_SRCDIR([main.c])
 AM_INIT_AUTOMAKE([gnu])
