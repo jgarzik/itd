@@ -1,1 +1,9 @@
 This is an iSCSI target daemon.
+
+Usage instructions:
+
+Simply execute itd.  It automatically binds to the specified port,
+and begins servicing iSCSI requests against a heap-allocated slice
+of memory.
+
+
