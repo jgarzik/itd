@@ -72,6 +72,15 @@ static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
 	0, 0, 0
 };
 
+static const uint8_t def_cache_mpage[CACHE_MPAGE_LEN] = {
+	CACHE_MPAGE,
+	CACHE_MPAGE_LEN - 2,
+	0,		/* contains WCE, needs to be 0 for logic */
+	0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0,		/* contains DRA, needs to be 0 for logic */
+	0, 0, 0, 0, 0, 0, 0
+};
+
 static const uint8_t def_control_mpage[CONTROL_MPAGE_LEN] = {
 	CONTROL_MPAGE,
 	CONTROL_MPAGE_LEN - 2,
@@ -280,6 +289,13 @@ static unsigned int msense_ctl_mode(uint8_t *buf)
 	return sizeof(def_control_mpage);
 }
 
+static unsigned int msense_cache(uint8_t *buf)
+{
+	memcpy(buf, def_cache_mpage, sizeof(def_cache_mpage));
+	buf[12] |= (1 << 5);	/* DRA: disable read ahead */
+	return sizeof(def_cache_mpage);
+}
+
 static unsigned int msense_rw_recovery(uint8_t *buf)
 {
 	memcpy(buf, def_rw_recovery_mpage, sizeof(def_rw_recovery_mpage));
@@ -336,12 +352,17 @@ static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
 		p += msense_rw_recovery(p);
 		break;
 
+	case CACHE_MPAGE:
+		p += msense_cache(p);
+		break;
+
 	case CONTROL_MPAGE:
 		p += msense_ctl_mode(p);
 		break;
 
 	case ALL_MPAGES:
 		p += msense_rw_recovery(p);
+		p += msense_cache(p);
 		p += msense_ctl_mode(p);
 		break;
 
