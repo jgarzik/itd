@@ -169,7 +169,7 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 				  "iscsi_scsi_cmd_decap() failed\n");
 		return -1;
 	}
-	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+	iscsi_trace(TRACE_ISCSI_DEBUG | TRACE_SCSI_CMD, __FILE__, __LINE__,
 		    "session %d: SCSI Command (CmdSN %u, op %#x %s)\n", sess->id,
 		    scsi_cmd.CmdSN,
 		    scsi_cmd.cdb[0], sopstr(scsi_cmd.cdb[0]));
