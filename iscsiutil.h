@@ -47,6 +47,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -80,11 +81,9 @@
 #include <syslog.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include <gnet.h>
+#include <event.h>
+#include "elist.h"
 
 /*
  * Debugging Levels
@@ -135,14 +134,18 @@ extern void     iscsi_trace_error(const char *, const int, const char *, ...);
 extern void     iscsi_print_buffer(uint8_t *, const size_t);
 
 /*
- * Socket Abstraction
+ * Socket Abstraction and misc.
  */
 
+struct target_session;
+struct tcp_write_state;
+
 extern const char *sopstr(uint8_t op);
-extern void send_padding(GConn *conn, unsigned int len_out);
-extern int      iscsi_sock_send_header_and_data(GConn *,
-						const void *, unsigned,
-						const void *, unsigned, int);
+extern int fsetflags(const char *prefix, int fd, int or_flags);
+extern int
+iscsi_writev(struct tcp_write_state *st,
+				const void *header, unsigned header_len,
+				const void *data, unsigned data_len, int iovc);
 extern int      modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 extern void     cdb2lba(uint32_t *, uint16_t *, uint8_t *);
@@ -187,7 +190,7 @@ extern int      HexTextToData(const char *, uint32_t, uint8_t *, uint32_t);
 extern int      HexDataToText(uint8_t *, uint32_t, char *, uint32_t);
 extern void     GenRandomData(uint8_t *, uint32_t);
 
-/* this is the maximum number of iovecs which we can use in iscsi_sock_send_header_and_data */
+/* this is the maximum number of iovecs which we can use in iscsi_writev */
 #ifndef ISCSI_MAX_IOVECS
 #define ISCSI_MAX_IOVECS        32
 #endif
@@ -239,5 +242,48 @@ typedef struct name {							\
 #ifndef HAVE_STRLCPY
 extern size_t   strlcpy(char *, const char *, size_t);
 #endif
+
+enum {
+	TCP_MAX_WR_IOV		= 512,	/* arbitrary, pick better one */
+	TCP_MAX_WR_CNT		= 10000,/* arbitrary, pick better one */
+};
+
+struct tcp_write_state {
+	int 			fd;
+	struct list_head	write_q;
+	struct list_head	write_compl_q;
+	size_t			write_cnt;	/* water level */
+	size_t			write_cnt_max;
+	bool			writing;
+	struct event		write_ev;
+
+	void			*priv;		/* useable by any app */
+
+	/* stats */
+	unsigned long		opt_write;
+};
+
+struct tcp_write {
+	const void		*buf;		/* write buffer pointer */
+	int			togo;		/* write buffer remainder */
+
+	int			length;		/* length for accounting */
+
+						/* callback */
+	bool			(*cb)(struct tcp_write_state *, void *, bool);
+	void			*cb_data;	/* data passed to cb */
+
+	struct list_head	node;
+};
+
+extern int tcp_writeq(struct tcp_write_state *st, const void *buf, unsigned int buflen,
+	       bool (*cb)(struct tcp_write_state *, void *, bool),
+	       void *cb_data);
+extern bool tcp_wr_cb_free(struct tcp_write_state *st, void *cb_data, bool done);
+extern void tcp_write_init(struct tcp_write_state *st, int fd);
+extern void tcp_write_exit(struct tcp_write_state *st);
+extern bool tcp_write_start(struct tcp_write_state *st);
+
+extern void send_padding(struct tcp_write_state *st, unsigned int len_out);
 
 #endif /* _ISCSIUTIL_H_ */

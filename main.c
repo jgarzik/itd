@@ -20,12 +20,14 @@
 
 #include "itd-config.h"
 
+#include <sys/socket.h>
+#include <netdb.h>
 #include <glib.h>
-#include <gnet.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <netinet/in.h>
 #include <argp.h>
+#include <event.h>
 
 #include "iscsi.h"
 #include "target.h"
@@ -34,11 +36,10 @@
 
 uint32_t iscsi_debug_level = 0;
 
+static bool server_running = true;
 void *data_mem = NULL;
 uint32_t data_mem_lba;
 uint32_t data_lba_size;
-
-static GServer *tcp_srv;
 
 static struct globals gbls = {
 	.port		= 3260,
@@ -637,23 +638,170 @@ int device_shutdown(struct target_session *f)
 	return -1;
 }
 
-static void tcp_srv_event(GServer * srv, GConn * conn, gpointer user_data)
+static void tcp_srv_event(int fd, short events, void *userdata)
 {
-	target_accept(&gbls, conn);
+	struct server_socket *sock = userdata;
+
+	target_accept(&gbls, sock);
+}
+
+static void applogerr(const char *msg)
+{
+	perror(msg);
+}
+
+#define applog(lvl, fmt, ...)					\
+	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,	\
+		    fmt, ## __VA_ARGS__)
+
+static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
+			   int addr_len, void *addr_ptr)
+{
+	struct server_socket *sock;
+	int fd, on;
+	int rc;
+
+	fd = socket(addr_fam, sock_type, sock_prot);
+	if (fd < 0) {
+		rc = errno;
+		applogerr("tcp socket");
+		return -rc;
+	}
+
+	on = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+		rc = errno;
+		applogerr("setsockopt(SO_REUSEADDR)");
+		close(fd);
+		return -rc;
+	}
+
+	if (bind(fd, addr_ptr, addr_len) < 0) {
+		rc = errno;
+		applogerr("tcp bind");
+		close(fd);
+		return -rc;
+	}
+
+	if (listen(fd, 100) < 0) {
+		rc = errno;
+		applogerr("tcp listen");
+		close(fd);
+		return -rc;
+	}
+
+	rc = fsetflags("tcp server", fd, O_NONBLOCK);
+	if (rc) {
+		close(fd);
+		return rc;
+	}
+
+	sock = calloc(1, sizeof(*sock));
+	if (!sock) {
+		close(fd);
+		return -ENOMEM;
+	}
+
+	sock->fd = fd;
+
+	getsockname(fd, &sock->addr, &sock->addrlen);
+	getnameinfo(&sock->addr, sock->addrlen,
+		    sock->addr_str, sizeof(sock->addr_str), NULL, 0,
+		    NI_NUMERICHOST);
+	sock->addr_str[sizeof(sock->addr_str) - 1] = 0;
+
+	snprintf(gbls.host, sizeof(gbls.host), "%s", sock->addr_str);
+	snprintf(gbls.targetaddress, sizeof(gbls.targetaddress), "%s:%u,1",
+		 gbls.host, gbls.port);
+
+	event_set(&sock->ev, fd, EV_READ | EV_PERSIST, tcp_srv_event, sock);
+
+	if (event_add(&sock->ev, NULL)) {
+		close(fd);
+		free(sock);
+		return -EIO;
+	}
+
+	gbls.sockets = g_list_append(gbls.sockets, sock);
+	return fd;
+}
+
+static int net_open_known(int port_num)
+{
+	int ipv6_found;
+	int rc;
+	struct addrinfo hints, *res, *res0;
+	char portstr[32];
+
+	snprintf(portstr, sizeof(portstr), "%d", port_num);
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	rc = getaddrinfo(NULL, portstr, &hints, &res0);
+	if (rc) {
+		applog(LOG_ERR, "getaddrinfo(*:%s) failed: %s",
+		       portstr, gai_strerror(rc));
+		rc = -EINVAL;
+		goto err_addr;
+	}
+
+	/*
+	 * We rely on getaddrinfo to discover if the box supports IPv6.
+	 * Much easier to sanitize its output than to try to figure what
+	 * to put into ai_family.
+	 *
+	 * These acrobatics are required on Linux because we should bind
+	 * to ::0 if we want to listen to both ::0 and 0.0.0.0. Else, we
+	 * may bind to 0.0.0.0 by accident (depending on order getaddrinfo
+	 * returns them), then bind(::0) fails and we only listen to IPv4.
+	 */
+	ipv6_found = 0;
+	for (res = res0; res; res = res->ai_next) {
+		if (res->ai_family == PF_INET6)
+			ipv6_found = 1;
+	}
+
+	for (res = res0; res; res = res->ai_next) {
+		char listen_host[65], listen_serv[65];
+
+		if (ipv6_found && res->ai_family == PF_INET)
+			continue;
+
+		rc = net_open_socket(res->ai_family, res->ai_socktype,
+				     res->ai_protocol,
+				     res->ai_addrlen, res->ai_addr);
+		if (rc < 0)
+			goto err_out;
+		getnameinfo(res->ai_addr, res->ai_addrlen,
+			    listen_host, sizeof(listen_host),
+			    listen_serv, sizeof(listen_serv),
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+
+		applog(LOG_INFO, "Listening on %s port %s",
+		       listen_host, listen_serv);
+	}
+
+	freeaddrinfo(res0);
+	return 0;
+
+err_out:
+	freeaddrinfo(res0);
+err_addr:
+	return rc;
 }
 
 static int net_init(void)
 {
-	tcp_srv = gnet_server_new(NULL, 3260, tcp_srv_event, NULL);
-	if (!tcp_srv)
-		return -1;
+	int rc;
+
+	rc = net_open_known(gbls.port);
+	if (rc)
+		return rc;
 
 	return 0;
-}
-
-static void net_exit(void)
-{
-	gnet_server_unref(tcp_srv);
 }
 
 static targv_t tv;
@@ -741,8 +889,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
 int main(int argc, char *argv[])
 {
-	GMainLoop      *ml;
 	error_t aprc;
+
+	event_init();
 
 	/*
 	 * parse command line
@@ -754,10 +903,6 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ml = g_main_loop_new(NULL, FALSE);
-	if (!ml)
-		return 1;
-
 	if (mem_init())
 		return 1;
 	if (net_init())
@@ -765,12 +910,10 @@ int main(int argc, char *argv[])
 	if (master_iscsi_init())
 		return 1;
 
-	g_main_loop_run(ml);
+	while (server_running)
+		event_dispatch();
 
 	master_iscsi_exit();
-	net_exit();
-
-	g_main_loop_unref(ml);
 
 	return 0;
 }

@@ -43,7 +43,10 @@
 #ifndef _TARGET_H_
 #define _TARGET_H_
 
-#include <gnet.h>
+#include <stdbool.h>
+#include <glib.h>
+#include <event.h>
+
 #include "iscsi.h"
 #include "iscsiutil.h"
 #include "parameters.h"
@@ -138,6 +141,16 @@ struct globals {
 	int             address_family;	/* global default IP address family */
 	int             max_sessions;	/* maximum number of sessions */
 	uint32_t        last_tsih;	/* the last TSIH that was used */
+	GList		*sockets;
+	char		host[128];
+};
+
+struct server_socket {
+	int			fd;
+	struct event		ev;
+	struct sockaddr		addr;
+	socklen_t		addrlen;
+	char			addr_str[128];
 };
 
 struct session_xfer {
@@ -152,22 +165,20 @@ struct session_xfer {
 
 enum session_read_state {
 	srs_err,
-	srs_basic_hdr,
-	srs_ahs_data,
-	srs_data,
-	srs_data_hdr,
+	srs_bhs,
+	srs_ahs,
+	srs_data_pad,
+	srs_exec_pdu,
 };
 
 /* session parameters */
 struct target_session {
 	int             id;
 	int             d;
-	GConn          *conn;
 	uint16_t        cid;
 	uint32_t        StatSN;
 	uint32_t        ExpCmdSN;
 	uint32_t        MaxCmdSN;
-	uint8_t        *buff;
 	int             UsePhaseCollapsedRead;
 	int             IsFullFeature;
 	int             IsLoggedIn;
@@ -180,14 +191,30 @@ struct target_session {
 	int             address_family;
 	int32_t         last_tsih;
 	enum session_read_state readst;
-	uint8_t        *ahs;
-	int             ahs_len;
-	int		buff_len;
+
+	uint8_t		*ahs;
+	unsigned int	ahs_len;
+	unsigned int	ahs_recv;
+
+	uint8_t		*data;
+	unsigned int	data_len;
+	unsigned int	data_pad_recv;
+
+	unsigned int	pad_len;
+
+	unsigned int	hdr_recv;
+
+	int		fd;
+	struct sockaddr	addr;
+	struct event	ev;
+
+	struct tcp_write_state wst;
 
 	struct session_xfer xfer;
 
 	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	uint8_t         header[ISCSI_HEADER_LEN];
+	char		addr_host[128];
 	uint8_t		outbuf[512];
 };
 
@@ -199,7 +226,7 @@ struct target_cmd {
 
 extern int      target_init(struct globals *, targv_t *, char *);
 extern int      target_shutdown(struct globals *);
-extern int      target_accept(struct globals *gp, GConn * conn);
+extern int      target_accept(struct globals *gp, struct server_socket *sock);
 extern int      target_sess_cleanup(struct target_session *sess);
 extern int      target_transfer_data(struct target_session *,
 				     struct iscsi_scsi_cmd_args *,

@@ -205,7 +205,7 @@ const char *sopstr(uint8_t op)
 {
 	if (scsi_cmd_str[op])
 		return scsi_cmd_str[op];
-	
+
 	return "(unknown)";
 }
 
@@ -373,17 +373,17 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 #define MAXSOCK	16
 #endif
 
-void send_padding(GConn *conn, unsigned int len_out)
+void send_padding(struct tcp_write_state *st, unsigned int len_out)
 {
 	int i, pad_len;
-	char pad_buf[4] = { 0, 0, 0, 0 };
+	static const char pad_buf[4] = { 0, 0, 0, 0 };
 
 	i = len_out & 0x3;
 	if (!i)
 		return;
-	
+
 	pad_len = 4 - i;
-	gnet_conn_write(conn, pad_buf, pad_len);
+	tcp_writeq(st, pad_buf, pad_len, NULL, NULL);
 }
 
 /*
@@ -396,20 +396,31 @@ void send_padding(GConn *conn, unsigned int len_out)
  * data, else send as two separate messages.
  */
 
-int
-iscsi_sock_send_header_and_data(GConn * conn,
-				const void *header, unsigned header_len,
-				const void *data, unsigned data_len, int iovc)
+int iscsi_writev(struct tcp_write_state *st,
+		 const void *header, unsigned header_len,
+		 const void *data, unsigned data_len, int iovc)
 {
+	void *mem;
+
 	iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
 		    "NET: writing %u header bytes\n", header_len);
-	gnet_conn_write(conn, (void *)header, header_len);
+
+	mem = g_memdup(header, header_len);
+	if (!mem)
+		return -1;
+
+	tcp_writeq(st, mem, header_len, tcp_wr_cb_free, mem);
 
 	if (!iovc) {
 		iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
 			    "NET: writing %u data bytes\n", data_len);
-		if (data_len > 0)
-			gnet_conn_write(conn, (void *)data, data_len);
+		if (data_len > 0) {
+			mem = g_memdup(data, data_len);
+			if (!mem)
+				return -1;
+			tcp_writeq(st, mem, data_len,
+				   tcp_wr_cb_free, mem);
+		}
 
 	} else {
 		struct iovec    iov[ISCSI_MAX_IOVECS];
@@ -421,17 +432,26 @@ iscsi_sock_send_header_and_data(GConn * conn,
 
 		for (i = 0; i < iovc; i++) {
 			iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
-				    "NET: writing %u bytes (iov %d)\n",
-				    data_len, i);
-			if (iov[i].iov_len > 0)
-				gnet_conn_write(conn, iov[i].iov_base,
-						iov[i].iov_len);
+				    "NET: %swriting %u bytes (iov %d)\n",
+				    iov[i].iov_len > 0 ? "" : "not ",
+				    iov[i].iov_len, i);
+
+			if (iov[i].iov_len <= 0)
+				continue;
+
+			mem = g_memdup(iov[i].iov_base, iov[i].iov_len);
+			if (!mem)
+				return -1;
+			tcp_writeq(st, mem, iov[i].iov_len,
+				   tcp_wr_cb_free, mem);
 
 			data_len += iov[i].iov_len;
 		}
 	}
 
-	send_padding(conn, data_len);
+	send_padding(st, data_len);
+
+	tcp_write_start(st);
 
 	return header_len + data_len;
 }
@@ -749,3 +769,233 @@ size_t strlcpy(char *dst, const char *src, size_t siz)
 	return (s - src - 1);	/* count does not include NUL */
 }
 #endif
+
+int fsetflags(const char *prefix, int fd, int or_flags)
+{
+	int flags, old_flags, rc;
+
+	/* get current flags */
+	old_flags = fcntl(fd, F_GETFL);
+	if (old_flags < 0) {
+		return -errno;
+	}
+
+	/* add or_flags */
+	rc = 0;
+	flags = old_flags | or_flags;
+
+	/* set new flags */
+	if (flags != old_flags)
+		if (fcntl(fd, F_SETFL, flags) < 0) {
+			rc = -errno;
+		}
+
+	return rc;
+}
+
+static void tcp_write_complete(struct tcp_write_state *st, struct tcp_write *tmp)
+{
+	list_del(&tmp->node);
+	list_add_tail(&tmp->node, &st->write_compl_q);
+}
+
+bool tcp_wr_cb_free(struct tcp_write_state *st, void *cb_data, bool done)
+{
+	free(cb_data);
+	return false;
+}
+
+static bool tcp_write_free(struct tcp_write_state *st, struct tcp_write *tmp,
+			   bool done)
+{
+	bool rcb = false;
+
+	st->write_cnt -= tmp->length;
+	list_del(&tmp->node);
+	if (tmp->cb)
+		rcb = tmp->cb(st, tmp->cb_data, done);
+	free(tmp);
+
+	return rcb;
+}
+
+static void tcp_write_free_all(struct tcp_write_state *st)
+{
+	struct tcp_write *wr, *tmp;
+
+	list_for_each_entry_safe(wr, tmp, &st->write_compl_q, node) {
+		tcp_write_free(st, wr, true);
+	}
+	list_for_each_entry_safe(wr, tmp, &st->write_q, node) {
+		tcp_write_free(st, wr, false);
+	}
+}
+
+bool tcp_write_run_compl(struct tcp_write_state *st)
+{
+	struct tcp_write *wr;
+	bool do_loop;
+
+	do_loop = false;
+	while (!list_empty(&st->write_compl_q)) {
+		wr = list_entry(st->write_compl_q.next, struct tcp_write,
+				node);
+		do_loop |= tcp_write_free(st, wr, true);
+	}
+	return do_loop;
+}
+
+static bool tcp_writable(struct tcp_write_state *st)
+{
+	int n_iov;
+	struct tcp_write *tmp;
+	ssize_t rc;
+	struct iovec iov[TCP_MAX_WR_IOV];
+
+	/* accumulate pending writes into iovec */
+	n_iov = 0;
+	list_for_each_entry(tmp, &st->write_q, node) {
+		if (n_iov == TCP_MAX_WR_IOV)
+			break;
+		/* bleh, struct iovec should declare iov_base const */
+		iov[n_iov].iov_base = (void *) tmp->buf;
+		iov[n_iov].iov_len = tmp->togo;
+		n_iov++;
+	}
+
+	/* execute non-blocking write */
+do_write:
+	rc = writev(st->fd, iov, n_iov);
+	if (rc < 0) {
+		if (errno == EINTR)
+			goto do_write;
+		if (errno != EAGAIN)
+			goto err_out;
+		return true;
+	}
+
+	/* iterate through write queue, issuing completions based on
+	 * amount of data written
+	 */
+	while (rc > 0) {
+		int sz;
+
+		/* get pointer to first record on list */
+		tmp = list_entry(st->write_q.next, struct tcp_write, node);
+
+		/* mark data consumed by decreasing tmp->len */
+		sz = (tmp->togo < rc) ? tmp->togo : rc;
+		tmp->togo -= sz;
+		tmp->buf += sz;
+		rc -= sz;
+
+		/* if tmp->len reaches zero, write is complete,
+		 * so schedule it for clean up (cannot call callback
+		 * right away or an endless recursion will result)
+		 */
+		if (tmp->togo == 0)
+			tcp_write_complete(st, tmp);
+	}
+
+	/* if we emptied the queue, clear write notification */
+	if (list_empty(&st->write_q)) {
+		st->writing = false;
+		if (event_del(&st->write_ev) < 0)
+			goto err_out;
+	}
+
+	return true;
+
+err_out:
+	tcp_write_free_all(st);
+	return false;
+}
+
+bool tcp_write_start(struct tcp_write_state *st)
+{
+	if (list_empty(&st->write_q))
+		return true;		/* loop, not poll */
+
+	/* if write-poll already active, nothing further to do */
+	if (st->writing)
+		return false;		/* poll wait */
+
+	/* attempt optimistic write, in hopes of avoiding poll,
+	 * or at least refill the write buffers so as to not
+	 * get -immediately- called again by the kernel
+	 */
+	tcp_writable(st);
+	if (list_empty(&st->write_q)) {
+		st->opt_write++;
+		return true;		/* loop, not poll */
+	}
+
+	if (event_add(&st->write_ev, NULL) < 0)
+		return true;		/* loop, not poll */
+
+	st->writing = true;
+
+	return false;			/* poll wait */
+}
+
+int tcp_writeq(struct tcp_write_state *st, const void *buf, unsigned int buflen,
+	       bool (*cb)(struct tcp_write_state *, void *, bool),
+	       void *cb_data)
+{
+	struct tcp_write *wr;
+
+	if (!buf || !buflen)
+		return -EINVAL;
+
+	wr = calloc(1, sizeof(struct tcp_write));
+	if (!wr)
+		return -ENOMEM;
+
+	wr->buf = buf;
+	wr->togo = buflen;
+	wr->length = buflen;
+	wr->cb = cb;
+	wr->cb_data = cb_data;
+	list_add_tail(&wr->node, &st->write_q);
+	st->write_cnt += buflen;
+	if (st->write_cnt > st->write_cnt_max)
+		st->write_cnt_max = st->write_cnt;
+
+	return 0;
+}
+
+size_t tcp_wqueued(struct tcp_write_state *st)
+{
+	return st->write_cnt;
+}
+
+static void tcp_wr_evt(int fd, short events, void *userdata)
+{
+	struct tcp_write_state *st = userdata;
+
+	tcp_writable(st);
+}
+
+void tcp_write_init(struct tcp_write_state *st, int fd)
+{
+	memset(st, 0, sizeof(*st));
+
+	st->fd = fd;
+
+	INIT_LIST_HEAD(&st->write_q);
+	INIT_LIST_HEAD(&st->write_compl_q);
+
+	st->write_cnt_max = TCP_MAX_WR_CNT;
+
+	event_set(&st->write_ev, fd, EV_WRITE | EV_PERSIST,
+		  tcp_wr_evt, st);
+}
+
+void tcp_write_exit(struct tcp_write_state *st)
+{
+	if (st->writing)
+		event_del(&st->write_ev);
+
+	tcp_write_free_all(st);
+}
+
