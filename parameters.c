@@ -424,49 +424,19 @@ int driver_atoi(const char *s)
 static int find_credentials(struct iscsi_cred *cred, char *user,
 			    const char *auth)
 {
-#if 0
-	conffile_t      conf;
-	const char     *authtype;
-	unsigned        cc;
-	ent_t           e;
-
-	memset(&conf, 0x0, sizeof(conf));
-	memset(&e, 0x0, sizeof(e));
-#endif
+	cred->user = strdup(user);
+	cred->auth_type = "chap";
+	cred->shared_secret = strdup(user);
+	return 1;
 
 #if 0
-	if (!conffile_open(&conf, _PATH_ISCSI_PASSWD, "r", ":", "#")) {
-		iscsi_trace_error(__FILE__, __LINE__, "can't open `%s'\n",
-				  _PATH_ISCSI_PASSWD);
-		exit(EXIT_FAILURE);
-	}
-	while (conffile_getent(&conf, &e)) {
-		if (strcasecmp(e.sv.v[0], user) == 0) {
-			authtype = (e.sv.c == 1) ? "none" : e.sv.v[1];
-			cc = strlen(authtype);
-			if (auth == NULL
-			    || (strncasecmp(authtype, auth, cc) == 0
-				&& cc == strlen(auth))) {
-				cred->user = strdup(e.sv.v[0]);
-				cred->auth_type = strdup(authtype);
-				cred->shared_secret =
-				    (e.sv.c == 3) ? strdup(e.sv.v[2]) : NULL;
-				conffile_close(&conf);
-				return 1;
-			}
-		}
-	}
-	conffile_close(&conf);
-#endif
-
 	fprintf(stderr,
 		"No matching user configuration entry for `%s' was found\n",
 		user);
-#if 0
 	fprintf(stderr, "Please add an entry for `%s' to `%s'\n", user,
 		_PATH_ISCSI_PASSWD);
-#endif
 	return 0;
+#endif
 }
 
 #if 0
