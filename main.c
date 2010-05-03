@@ -28,6 +28,8 @@
 #include <netinet/in.h>
 #include <argp.h>
 #include <event.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 
 #include "iscsi.h"
 #include "target.h"
@@ -715,6 +717,62 @@ static void applogerr(const char *msg)
 	iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,	\
 		    fmt, ## __VA_ARGS__)
 
+static bool find_local_addr_str(char *str, size_t str_size)
+{
+	struct ifaddrs *ifa = NULL, *tmp, *cur;
+	bool loopback = false;
+	bool rcb = false;
+
+	if (getifaddrs(&ifa) < 0)
+		return false;
+
+restart:
+	tmp = ifa;
+	while (tmp) {
+		cur = tmp;
+		tmp = tmp->ifa_next;
+
+		if (!(cur->ifa_flags & IFF_UP))
+			continue;
+		if (!loopback && (cur->ifa_flags & IFF_LOOPBACK))
+			continue;
+		if (cur->ifa_addr->sa_family != AF_INET &&
+		    cur->ifa_addr->sa_family != AF_INET6)
+			continue;
+		if (cur->ifa_addr->sa_family == AF_INET6) {
+			struct sockaddr_in6 *a6 =
+				(struct sockaddr_in6 *) cur->ifa_addr;
+
+			if (!loopback && IN6_IS_ADDR_LOOPBACK(&a6->sin6_addr))
+				continue;
+			if (IN6_IS_ADDR_UNSPECIFIED(&a6->sin6_addr) ||
+			    IN6_IS_ADDR_LINKLOCAL(&a6->sin6_addr))
+				continue;
+		}
+
+		/* passed exclusionary checks; this will be our
+		 * auto-detected target address, for the case when
+		 * we bind to any-address
+		 */
+		getnameinfo(cur->ifa_addr, sizeof(struct sockaddr),
+			    str, str_size, NULL, 0,
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+		str[str_size - 1] = 0;
+		rcb = true;
+		goto done;
+	}
+
+	if (!loopback) {
+		loopback = true;
+		goto restart;
+	}
+
+done:
+	freeifaddrs(ifa);
+	
+	return rcb;
+}
+
 static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
 			   int addr_len, void *addr_ptr)
 {
@@ -765,11 +823,15 @@ static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
 
 	sock->fd = fd;
 
-	getsockname(fd, &sock->addr, &sock->addrlen);
-	getnameinfo(&sock->addr, sock->addrlen,
-		    sock->addr_str, sizeof(sock->addr_str), NULL, 0,
-		    NI_NUMERICHOST);
-	sock->addr_str[sizeof(sock->addr_str) - 1] = 0;
+	sock->addrlen = addr_len;
+	memcpy(&sock->addr, addr_ptr, addr_len);
+
+	if (!find_local_addr_str(sock->addr_str, sizeof(sock->addr_str))) {
+		getnameinfo(addr_ptr, addr_len,
+			    sock->addr_str, sizeof(sock->addr_str), NULL, 0,
+			    NI_NUMERICHOST | NI_NUMERICSERV);
+		sock->addr_str[sizeof(sock->addr_str) - 1] = 0;
+	}
 
 	snprintf(gbls.host, sizeof(gbls.host), "%s", sock->addr_str);
 	snprintf(gbls.targetaddress, sizeof(gbls.targetaddress), "%s:%u,1",
@@ -841,7 +903,7 @@ static int net_open_known(int port_num)
 			    listen_serv, sizeof(listen_serv),
 			    NI_NUMERICHOST | NI_NUMERICSERV);
 
-		applog(LOG_INFO, "Listening on %s port %s",
+		applog(LOG_INFO, "Listening on %s port %s\n",
 		       listen_host, listen_serv);
 	}
 
