@@ -544,18 +544,7 @@ response:
 			}
 		}
 	}
-	/* Device callback after command has completed */
 
-	if (cmd.callback) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "issuing device callback\n");
-		if ((*cmd.callback) (cmd.callback_arg) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "device callback failed\n");
-			AHS_CLEANUP;
-			return -1;
-		}
-	}
 	AHS_CLEANUP;
 	return 0;
 }

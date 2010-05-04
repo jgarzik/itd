@@ -226,8 +226,6 @@ struct target_session {
 
 struct target_cmd {
 	struct iscsi_scsi_cmd_args *scsi_cmd;
-	int             (*callback) (void *);
-	void           *callback_arg;
 };
 
 extern int      target_init(struct globals *, targv_t *, char *);
