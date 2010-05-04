@@ -100,7 +100,7 @@ static const uint8_t def_fmt_dev_mpage[FMT_DEV_MPAGE_LEN] = {
 	FMT_DEV_MPAGE_LEN - 2,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	data_lba_size >> 8, data_lba_size & 0xff,
-	0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0,
 	(1 << 6),	/* HSEC=1 */
 	0, 0, 0
 };
@@ -769,7 +769,7 @@ restart:
 
 done:
 	freeifaddrs(ifa);
-	
+
 	return rcb;
 }
 

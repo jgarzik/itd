@@ -314,12 +314,88 @@ static int send_read_data(struct target_session *sess,
 	return 0;
 }
 
+static int send_rsp_pdu(struct target_session *sess,
+			struct iscsi_scsi_cmd_args *scsi_cmd,
+			uint32_t *DataSN)
+{
+	uint8_t rsp_header[ISCSI_HEADER_LEN];
+	struct iscsi_scsi_rsp scsi_rsp;
+	bool send_it = false;
+
+	/*
+	 * Send a response PDU if
+	 *
+	 * 1) we're not using phase collapsed input (and status was good)
+	 * 2) we are using phase collapsed input, but there was no input data (e.g., TEST UNIT READY)
+	 * 3) command had non-zero status and possible sense data
+	 */
+
+	if (!sess->UsePhaseCollapsedRead || !scsi_cmd->length ||
+	    scsi_cmd->status)
+		send_it = true;
+
+	if (!send_it)
+		return 0;
+
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "sending SCSI response PDU\n");
+	memset(&scsi_rsp, 0x0, sizeof(scsi_rsp));
+	scsi_rsp.length = scsi_cmd->status ? scsi_cmd->length : 0;
+	scsi_rsp.tag = scsi_cmd->tag;
+	/* If r2t send, then the StatSN is already incremented */
+	if (sess->StatSN < scsi_cmd->ExpStatSN) {
+		++sess->StatSN;
+	}
+	scsi_rsp.StatSN = sess->StatSN;
+	scsi_rsp.ExpCmdSN = sess->ExpCmdSN;
+	scsi_rsp.MaxCmdSN = sess->MaxCmdSN;
+	scsi_rsp.ExpDataSN = (!scsi_cmd->status
+			      && scsi_cmd->input) ? (*DataSN) : 0;
+	scsi_rsp.response = 0x00;	/* iSCSI response */
+	scsi_rsp.status = scsi_cmd->status;	/* SCSI status */
+	if (iscsi_scsi_rsp_encap(rsp_header, &scsi_rsp) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_scsi_rsp_encap() failed\n");
+		return -1;
+	}
+	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
+			 scsi_cmd->send_data, scsi_rsp.length,
+			 scsi_cmd->send_sg_len)
+			        != ISCSI_HEADER_LEN + scsi_rsp.length) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_writev() failed\n");
+		return -1;
+	}
+	/* Make sure all data was transferred */
+
+	if (scsi_cmd->output) {
+		scsi_cmd->bytes_recv = sess->xfer.bytes_recv;
+		RETURN_NOT_EQUAL("scsi_cmd->bytes_recv",
+				 scsi_cmd->bytes_recv,
+				 scsi_cmd->trans_len, , -1);
+
+		if (scsi_cmd->input) {
+			RETURN_NOT_EQUAL("scsi_cmd->bytes_sent",
+					 scsi_cmd->bytes_sent,
+					 scsi_cmd->bidi_trans_len,
+					 , -1);
+		}
+	} else {
+		if (scsi_cmd->input) {
+			RETURN_NOT_EQUAL("scsi_cmd->bytes_sent",
+					 scsi_cmd->bytes_sent,
+					 scsi_cmd->trans_len,
+					 , -1);
+		}
+	}
+
+	return 0;
+}
+
 static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 {
 	struct target_cmd cmd;
 	struct iscsi_scsi_cmd_args scsi_cmd;
-	struct iscsi_scsi_rsp scsi_rsp;
-	uint8_t         rsp_header[ISCSI_HEADER_LEN];
 	uint32_t        DataSN = 0;
 
 	memset(&scsi_cmd, 0x0, sizeof(scsi_cmd));
@@ -402,9 +478,6 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 					  "malloc() failed\n");
 			return -1;
 		}
-#define AHS_CLEANUP do {						\
-	free(scsi_cmd.ahs);			\
-} while (/* CONSTCOND */ 0)
 
 		memcpy(scsi_cmd.ahs, sess->pdu.ahs, scsi_cmd.ahs_len);
 
@@ -414,7 +487,7 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 		     ahs_ptr < (scsi_cmd.ahs + scsi_cmd.ahs_len - 1);
 		     ahs_ptr += ahs_len) {
 			ahs_len = ntohs(*((uint16_t *) (void *)ahs_ptr));
-			RETURN_EQUAL("AHS Length", ahs_len, 0, AHS_CLEANUP, -1);
+			RETURN_EQUAL("AHS Length", ahs_len, 0, goto err_out,-1);
 			switch (ahs_type = *(ahs_ptr + 2)) {
 			case ISCSI_AHS_EXTENDED_CDB:
 				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
@@ -438,8 +511,7 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 				iscsi_trace_error(__FILE__, __LINE__,
 						  "unknown AHS type %x\n",
 						  ahs_type);
-				AHS_CLEANUP;
-				return -1;
+				goto err_out;
 			}
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -469,84 +541,27 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 	if (device_command(sess, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "device_command() failed\n");
-		AHS_CLEANUP;
-		return -1;
+		goto err_out;
 	}
 
 	/* Send any input data for READ commands */
 	scsi_cmd.bytes_sent = 0;
 	if (!scsi_cmd.status && scsi_cmd.input) {
-		if (send_read_data(sess, &scsi_cmd, &DataSN) < 0) {
-			AHS_CLEANUP;
-			return -1;
-		}
+		if (send_read_data(sess, &scsi_cmd, &DataSN) < 0)
+			goto err_out;
 	}
-	/*
-	 * Send a response PDU if
-	 *
-	 * 1) we're not using phase collapsed input (and status was good)
-	 * 2) we are using phase collapsed input, but there was no input data (e.g., TEST UNIT READY)
-	 * 3) command had non-zero status and possible sense data
-	 */
+
 response:
-	if (!sess->UsePhaseCollapsedRead || !scsi_cmd.length || scsi_cmd.status) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "sending SCSI response PDU\n");
-		memset(&scsi_rsp, 0x0, sizeof(scsi_rsp));
-		scsi_rsp.length = scsi_cmd.status ? scsi_cmd.length : 0;
-		scsi_rsp.tag = scsi_cmd.tag;
-		/* If r2t send, then the StatSN is already incremented */
-		if (sess->StatSN < scsi_cmd.ExpStatSN) {
-			++sess->StatSN;
-		}
-		scsi_rsp.StatSN = sess->StatSN;
-		scsi_rsp.ExpCmdSN = sess->ExpCmdSN;
-		scsi_rsp.MaxCmdSN = sess->MaxCmdSN;
-		scsi_rsp.ExpDataSN = (!scsi_cmd.status
-				      && scsi_cmd.input) ? DataSN : 0;
-		scsi_rsp.response = 0x00;	/* iSCSI response */
-		scsi_rsp.status = scsi_cmd.status;	/* SCSI status */
-		if (iscsi_scsi_rsp_encap(rsp_header, &scsi_rsp) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_scsi_rsp_encap() failed\n");
-			AHS_CLEANUP;
-			return -1;
-		}
-		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-				 scsi_cmd.send_data, scsi_rsp.length,
-				 scsi_cmd.send_sg_len)
-				        != ISCSI_HEADER_LEN + scsi_rsp.length) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iscsi_writev() failed\n");
-			AHS_CLEANUP;
-			return -1;
-		}
-		/* Make sure all data was transferred */
+	/* Send response PDU, if required */
+	if (send_rsp_pdu(sess, &scsi_cmd, &DataSN) < 0)
+		goto err_out;
 
-		if (scsi_cmd.output) {
-			scsi_cmd.bytes_recv = sess->xfer.bytes_recv;
-			RETURN_NOT_EQUAL("scsi_cmd.bytes_recv",
-					 scsi_cmd.bytes_recv,
-					 scsi_cmd.trans_len, AHS_CLEANUP, -1);
-
-			if (scsi_cmd.input) {
-				RETURN_NOT_EQUAL("scsi_cmd.bytes_sent",
-						 scsi_cmd.bytes_sent,
-						 scsi_cmd.bidi_trans_len,
-						 AHS_CLEANUP, -1);
-			}
-		} else {
-			if (scsi_cmd.input) {
-				RETURN_NOT_EQUAL("scsi_cmd.bytes_sent",
-						 scsi_cmd.bytes_sent,
-						 scsi_cmd.trans_len,
-						 AHS_CLEANUP, -1);
-			}
-		}
-	}
-
-	AHS_CLEANUP;
+	free(scsi_cmd.ahs);
 	return 0;
+
+err_out:
+	free(scsi_cmd.ahs);
+	return -1;
 }
 
 static int task_command_t(struct target_session *sess, const uint8_t *header)
