@@ -183,12 +183,142 @@ static int reject_t(struct target_session *sess, const uint8_t * header,
 	return 0;
 }
 
+/* send READ data from target (us) to initiator */
+static int send_read_data(struct target_session *sess,
+			  struct iscsi_scsi_cmd_args *scsi_cmd,
+			  uint32_t *DataSN)
+{
+	struct iscsi_read_data data;
+	uint8_t         rsp_header[ISCSI_HEADER_LEN];
+	struct iovec    sg_singleton;
+	struct iovec   *sg, *sg_orig, *sg_new = NULL;
+	int             sg_len_orig, sg_len;
+	uint32_t        offset, trans_len;
+	int             fragment_flag = 0;
+	int             offset_inc;
+#define SG_CLEANUP do {							\
+	if (fragment_flag) {						\
+		free(sg_new);				\
+	}								\
+} while (/* CONSTCOND */ 0)
+
+	if (scsi_cmd->output) {
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "sending %u bytes bi-directional input data\n",
+			    scsi_cmd->bidi_trans_len);
+		trans_len = scsi_cmd->bidi_trans_len;
+	} else {
+		trans_len = scsi_cmd->trans_len;
+	}
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "sending %d bytes input data as separate PDUs\n",
+		    trans_len);
+
+	if (scsi_cmd->send_sg_len) {
+		sg_orig = (struct iovec *)(void *)scsi_cmd->send_data;
+		sg_len_orig = scsi_cmd->send_sg_len;
+	} else {
+		sg_len_orig = 1;
+		sg_singleton.iov_base = scsi_cmd->send_data;
+		sg_singleton.iov_len = trans_len;
+		sg_orig = &sg_singleton;
+	}
+	sg = sg_orig;
+	sg_len = sg_len_orig;
+
+	offset_inc =
+	    (sess->sess_params.max_data_seg) ? sess->sess_params.
+	    max_data_seg : trans_len;
+
+	for (offset = 0; offset < trans_len; offset += offset_inc) {
+		memset(&data, 0x0, sizeof(data));
+
+		data.length = (sess->sess_params.max_data_seg) ?
+			MIN(trans_len - offset, sess->sess_params.max_data_seg):
+			trans_len - offset;
+		if (data.length != trans_len) {
+			if (!fragment_flag) {
+				if ((sg_new = malloc(sizeof(struct iovec)
+					    * sg_len_orig)) == NULL) {
+					iscsi_trace_error(__FILE__, __LINE__,
+							  "malloc() failed\n");
+					return -1;
+				}
+				fragment_flag++;
+			}
+			sg = sg_new;
+			sg_len = sg_len_orig;
+			memcpy(sg, sg_orig, sizeof(struct iovec) * sg_len_orig);
+			if (modify_iov (&sg, &sg_len, offset, data.length) != 0) {
+				iscsi_trace_error(__FILE__, __LINE__,
+						  "modify_iov() failed\n");
+				SG_CLEANUP;
+				return -1;
+			}
+		}
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "sending read data PDU (offset %u, len %u)\n",
+			    offset, data.length);
+		if (offset + data.length == trans_len) {
+			data.final = 1;
+
+			if (sess->UsePhaseCollapsedRead) {
+				data.status = 1;
+				data.status = scsi_cmd->status;
+				data.StatSN = ++(sess->StatSN);
+				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
+					    __LINE__,
+					    "status %#x collapsed into last data PDU\n",
+					    data.status);
+			} else {
+				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
+					    __LINE__,
+					    "NOT collapsing status with last data PDU\n");
+			}
+		} else if (offset + data.length > trans_len) {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "offset+data.length > trans_len??\n");
+			SG_CLEANUP;
+			return -1;
+		}
+		data.task_tag = scsi_cmd->tag;
+		data.ExpCmdSN = sess->ExpCmdSN;
+		data.MaxCmdSN = sess->MaxCmdSN;
+		data.DataSN = (*DataSN)++;
+		data.offset = offset;
+		if (iscsi_read_data_encap(rsp_header, &data) != 0) {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "iscsi_read_data_encap() failed\n");
+			SG_CLEANUP;
+			return -1;
+		}
+		if (iscsi_writev(&sess->wst,
+				 rsp_header, ISCSI_HEADER_LEN,
+				 sg, data.length, sg_len)
+				    != ISCSI_HEADER_LEN + data.length) {
+			iscsi_trace_error(__FILE__, __LINE__,
+					  "iscsi_writev() failed\n");
+			SG_CLEANUP;
+			return -1;
+		}
+		scsi_cmd->bytes_sent += data.length;
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "sent read data PDU ok (offset %u, len %u)\n",
+			    data.offset, data.length);
+	}
+	SG_CLEANUP;
+	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+		    "successfully sent %d bytes read data\n",
+		    trans_len);
+
+	return 0;
+}
+
 static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 {
 	struct target_cmd cmd;
 	struct iscsi_scsi_cmd_args scsi_cmd;
 	struct iscsi_scsi_rsp scsi_rsp;
-	struct iscsi_read_data data;
 	uint8_t         rsp_header[ISCSI_HEADER_LEN];
 	uint32_t        DataSN = 0;
 
@@ -342,142 +472,14 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 		AHS_CLEANUP;
 		return -1;
 	}
-	/* Send any input data */
 
+	/* Send any input data for READ commands */
 	scsi_cmd.bytes_sent = 0;
 	if (!scsi_cmd.status && scsi_cmd.input) {
-		struct iovec    sg_singleton;
-		struct iovec   *sg, *sg_orig, *sg_new = NULL;
-		int             sg_len_orig, sg_len;
-		uint32_t        offset, trans_len;
-		int             fragment_flag = 0;
-		int             offset_inc;
-#define SG_CLEANUP do {							\
-	if (fragment_flag) {						\
-		free(sg_new);				\
-	}								\
-} while (/* CONSTCOND */ 0)
-		if (scsi_cmd.output) {
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "sending %u bytes bi-directional input data\n",
-				    scsi_cmd.bidi_trans_len);
-			trans_len = scsi_cmd.bidi_trans_len;
-		} else {
-			trans_len = scsi_cmd.trans_len;
+		if (send_read_data(sess, &scsi_cmd, &DataSN) < 0) {
+			AHS_CLEANUP;
+			return -1;
 		}
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "sending %d bytes input data as separate PDUs\n",
-			    trans_len);
-
-		if (scsi_cmd.send_sg_len) {
-			sg_orig = (struct iovec *)(void *)scsi_cmd.send_data;
-			sg_len_orig = scsi_cmd.send_sg_len;
-		} else {
-			sg_len_orig = 1;
-			sg_singleton.iov_base = scsi_cmd.send_data;
-			sg_singleton.iov_len = trans_len;
-			sg_orig = &sg_singleton;
-		}
-		sg = sg_orig;
-		sg_len = sg_len_orig;
-
-		offset_inc =
-		    (sess->sess_params.max_data_seg) ? sess->sess_params.
-		    max_data_seg : trans_len;
-
-		for (offset = 0; offset < trans_len; offset += offset_inc) {
-			memset(&data, 0x0, sizeof(data));
-
-			data.length =
-			    (sess->sess_params.max_data_seg) ? MIN(trans_len -
-								   offset,
-								   sess->sess_params.
-								   max_data_seg)
-			    : trans_len - offset;
-			if (data.length != trans_len) {
-				if (!fragment_flag) {
-					if ((sg_new =
-					     malloc(sizeof(struct iovec)
-						    * sg_len_orig))
-					    == NULL) {
-						iscsi_trace_error(__FILE__,
-								  __LINE__,
-								  "malloc() failed\n");
-						AHS_CLEANUP;
-						return -1;
-					}
-					fragment_flag++;
-				}
-				sg = sg_new;
-				sg_len = sg_len_orig;
-				memcpy(sg, sg_orig,
-				       sizeof(struct iovec) * sg_len_orig);
-				if (modify_iov
-				    (&sg, &sg_len, offset, data.length) != 0) {
-					iscsi_trace_error(__FILE__, __LINE__,
-							  "modify_iov() failed\n");
-					SG_CLEANUP;
-					AHS_CLEANUP;
-					return -1;
-				}
-			}
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "sending read data PDU (offset %u, len %u)\n",
-				    offset, data.length);
-			if (offset + data.length == trans_len) {
-				data.final = 1;
-
-				if (sess->UsePhaseCollapsedRead) {
-					data.status = 1;
-					data.status = scsi_cmd.status;
-					data.StatSN = ++(sess->StatSN);
-					iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-						    __LINE__,
-						    "status %#x collapsed into last data PDU\n",
-						    data.status);
-				} else {
-					iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-						    __LINE__,
-						    "NOT collapsing status with last data PDU\n");
-				}
-			} else if (offset + data.length > trans_len) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "offset+data.length > trans_len??\n");
-				SG_CLEANUP;
-				AHS_CLEANUP;
-				return -1;
-			}
-			data.task_tag = scsi_cmd.tag;
-			data.ExpCmdSN = sess->ExpCmdSN;
-			data.MaxCmdSN = sess->MaxCmdSN;
-			data.DataSN = DataSN++;
-			data.offset = offset;
-			if (iscsi_read_data_encap(rsp_header, &data) != 0) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "iscsi_read_data_encap() failed\n");
-				SG_CLEANUP;
-				AHS_CLEANUP;
-				return -1;
-			}
-			if (iscsi_writev(&sess->wst,
-					 rsp_header, ISCSI_HEADER_LEN,
-					 sg, data.length, sg_len)
-					    != ISCSI_HEADER_LEN + data.length) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "iscsi_writev() failed\n");
-				SG_CLEANUP;
-				AHS_CLEANUP;
-				return -1;
-			}
-			scsi_cmd.bytes_sent += data.length;
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "sent read data PDU ok (offset %u, len %u)\n",
-				    data.offset, data.length);
-		}
-		SG_CLEANUP;
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "successfully sent %d bytes read data\n",
-			    trans_len);
 	}
 	/*
 	 * Send a response PDU if
