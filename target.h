@@ -153,6 +153,23 @@ struct server_socket {
 	char			addr_str[128];
 };
 
+struct target_pdu {
+	uint8_t         header[ISCSI_HEADER_LEN];
+	unsigned int	hdr_recv;
+
+	uint8_t		*ahs;
+	unsigned int	ahs_len;
+	unsigned int	ahs_recv;
+
+	uint8_t		*data;
+	unsigned int	data_len;
+	unsigned int	data_pad_recv;
+
+	unsigned int	pad_len;
+
+	int		refs;
+};
+
 struct session_xfer {
 	unsigned int	desired_len;
 	struct iscsi_r2t r2t;
@@ -192,17 +209,7 @@ struct target_session {
 	int32_t         last_tsih;
 	enum session_read_state readst;
 
-	uint8_t		*ahs;
-	unsigned int	ahs_len;
-	unsigned int	ahs_recv;
-
-	uint8_t		*data;
-	unsigned int	data_len;
-	unsigned int	data_pad_recv;
-
-	unsigned int	pad_len;
-
-	unsigned int	hdr_recv;
+	struct target_pdu pdu;
 
 	int		fd;
 	struct sockaddr	addr;
@@ -213,7 +220,6 @@ struct target_session {
 	struct session_xfer xfer;
 
 	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
-	uint8_t         header[ISCSI_HEADER_LEN];
 	char		addr_host[128];
 	uint8_t		outbuf[512];
 };

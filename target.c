@@ -114,6 +114,35 @@ static GList   *session_list;
  * Private Functions *
  *********************/
 
+static int pdu_cleanup(struct target_pdu *pdu)
+{
+	if (!pdu)
+		return 0;
+
+	if (pdu->refs > 1) {
+		pdu->refs--;
+		return 1;
+	}
+
+	pdu->refs = 0;
+
+	free(pdu->ahs);
+	free(pdu->data);
+
+	return 0;
+}
+
+static void pdu_reinit(struct target_pdu *pdu)
+{
+	if (pdu_cleanup(pdu) > 0)
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "pdu_cleanup with references held, STOMPING!!!\n");
+
+	memset(pdu, 0, sizeof(*pdu));
+
+	pdu->refs = 1;
+}
+
 static char *get_iqn(const struct target_session *sess, int t, char *buf,
 		     size_t size)
 {
@@ -247,7 +276,7 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 	free(scsi_cmd.ahs);			\
 } while (/* CONSTCOND */ 0)
 
-		memcpy(scsi_cmd.ahs, sess->ahs, scsi_cmd.ahs_len);
+		memcpy(scsi_cmd.ahs, sess->pdu.ahs, scsi_cmd.ahs_len);
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "read %d bytes AHS\n", scsi_cmd.ahs_len);
@@ -300,7 +329,7 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 	/* on whether scsi_cmd.output was set. */
 
 	if (scsi_cmd.input) {
-		scsi_cmd.send_data = sess->data;
+		scsi_cmd.send_data = sess->pdu.data;
 	}
 	scsi_cmd.input = 0;
 
@@ -629,7 +658,7 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "successfully read %d bytes ping data:\n",
 			    nop_out.length);
-		iscsi_print_buffer(sess->data, nop_out.length);
+		iscsi_print_buffer(sess->pdu.data, nop_out.length);
 	}
 	if (nop_out.tag != 0xffffffff) {
 		struct iscsi_nop_in_args nop_in;
@@ -652,7 +681,7 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 			return -1;
 		}
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-				 sess->data, nop_in.length, 0) !=
+				 sess->pdu.data, nop_in.length, 0) !=
 					    ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
@@ -713,7 +742,7 @@ static int text_command_t(struct target_session *sess, const uint8_t *header)
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "reading %d bytes text parameters\n", len_in);
 
-		memcpy(text_in, sess->data, len_in);
+		memcpy(text_in, sess->pdu.data, len_in);
 
 		text_in[len_in] = 0x0;
 		PARAM_TEXT_PARSE(sess->params, &sess->sess_params.cred, text_in,
@@ -940,7 +969,7 @@ static int login_command_t(struct target_session *sess, const uint8_t *header)
 			return -1;
 		}
 
-		memcpy(text_in, sess->data, len_in);
+		memcpy(text_in, sess->pdu.data, len_in);
 
 		text_in[len_in] = 0x0;
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1362,7 +1391,7 @@ read_data_pdu(struct target_session *sess,
 	uint8_t         header[ISCSI_HEADER_LEN];
 	int             ret_val = -1;
 
-	memcpy(header, sess->header, sizeof(header));
+	memcpy(header, sess->pdu.header, sizeof(header));
 
 	if ((ret_val = iscsi_write_data_decap(header, data)) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -1499,7 +1528,7 @@ static int target_data_pdu(struct target_session *sess)
 	/* Scatter into destination buffers */
 
 	/* FIXME - VERY wrong - just a placeholder */
-	memcpy(iov[0].iov_base, sess->data, data.length);
+	memcpy(iov[0].iov_base, sess->pdu.data, data.length);
 	iov[0].iov_len -= data.length;
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1594,7 +1623,7 @@ int target_transfer_data(struct target_session *sess,
 			    args->length);
 
 		/* FIXME - VERY wrong - just a placeholder */
-		memcpy(iov[0].iov_base, sess->data, args->length);
+		memcpy(iov[0].iov_base, sess->pdu.data, args->length);
 		iov[0].iov_len -= args->length;
 
 		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
@@ -1676,8 +1705,7 @@ int target_sess_cleanup(struct target_session *sess)
 		return -1;
 	}
 
-	free(sess->data);
-	free(sess->ahs);
+	pdu_cleanup(&sess->pdu);
 
 	event_del(&sess->ev);
 
@@ -1742,7 +1770,7 @@ int target_shutdown(struct globals *gp)
 
 static void target_exec_pdu(struct target_session *sess)
 {
-	if (execute_t(sess, (uint8_t *) &sess->header) < 0)
+	if (execute_t(sess, (uint8_t *) &sess->pdu.header) < 0)
 		iscsi_trace(TRACE_WARN, __FILE__, __LINE__,
 			    "execute_t failed\n");
 }
@@ -1754,20 +1782,7 @@ static void target_read_hdr(struct target_session *sess)
 
 	sess->readst = srs_bhs;
 
-	sess->hdr_recv = 0;
-
-	free(sess->data);
-	sess->data = NULL;
-	sess->data_len = 0;
-
-	sess->data_pad_recv = 0;
-
-	free(sess->ahs);
-	sess->ahs = NULL;
-	sess->ahs_len = 0;
-	sess->ahs_recv = 0;
-
-	sess->pad_len = 0;
+	pdu_reinit(&sess->pdu);
 }
 
 static int net_readbuf(int fd, void *buf, unsigned int bufsz,
@@ -1795,13 +1810,14 @@ static void target_read_evt(struct target_session *sess)
 {
 	uint8_t        *buf;
 	unsigned int	v;
+	struct target_pdu *pdu = &sess->pdu;
 	int rc;
 
 restart:
 	switch (sess->readst) {
 	case srs_bhs:
-		rc = net_readbuf(sess->fd, &sess->header, ISCSI_HEADER_LEN,
-				 &sess->hdr_recv);
+		rc = net_readbuf(sess->fd, &pdu->header, ISCSI_HEADER_LEN,
+				 &pdu->hdr_recv);
 		if (rc < 0) {	/* error */
 			if (errno != EAGAIN)
 				goto err_out;
@@ -1814,32 +1830,32 @@ restart:
 		 * we have a complete Basic Header Segment (BHS)
 		 */
 
-		buf = (uint8_t *) &sess->header;
+		buf = (uint8_t *) &pdu->header;
 
-		sess->ahs_len = buf[4];
+		pdu->ahs_len = buf[4];
 		buf[4] = 0;
 
-		sess->data_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
+		pdu->data_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
 
-		v = sess->ahs_len + sess->data_len;
+		v = pdu->ahs_len + pdu->data_len;
 		if (v & 0x3)
-			sess->pad_len = 4 - (v & 0x3);
+			pdu->pad_len = 4 - (v & 0x3);
 
-		if (sess->data_len > 0 || sess->pad_len > 0) {
-			sess->data = malloc(sess->data_len + sess->pad_len);
-			if (!sess->data)
+		if (pdu->data_len > 0 || pdu->pad_len > 0) {
+			pdu->data = malloc(pdu->data_len + pdu->pad_len);
+			if (!pdu->data)
 				goto err_out;
 		}
 
-		if (sess->ahs_len) {
-			sess->ahs = malloc(sess->ahs_len);
-			if (!sess->ahs)
+		if (pdu->ahs_len) {
+			pdu->ahs = malloc(pdu->ahs_len);
+			if (!pdu->ahs)
 				goto err_out;
 		}
 
-		if (sess->ahs)
+		if (pdu->ahs)
 			sess->readst = srs_ahs;
-		else if (sess->data)
+		else if (pdu->data)
 			sess->readst = srs_data_pad;
 		else
 			sess->readst = srs_exec_pdu;
@@ -1847,8 +1863,8 @@ restart:
 		goto restart;
 
 	case srs_ahs:
-		rc = net_readbuf(sess->fd, sess->ahs, sess->ahs_len,
-				 &sess->ahs_recv);
+		rc = net_readbuf(sess->fd, pdu->ahs, pdu->ahs_len,
+				 &pdu->ahs_recv);
 		if (rc < 0) {	/* error */
 			if (errno != EAGAIN)
 				goto err_out;
@@ -1861,7 +1877,7 @@ restart:
 		 * we have fully received all Addn'l Header Segs (AHS)
 		 */
 
-		if (sess->data)
+		if (pdu->data)
 			sess->readst = srs_data_pad;
 		else
 			sess->readst = srs_exec_pdu;
@@ -1870,8 +1886,8 @@ restart:
 
 	case srs_data_pad:
 		rc = net_readbuf(sess->fd,
-				 sess->data, sess->data_len + sess->pad_len,
-				 &sess->data_pad_recv);
+				 pdu->data, pdu->data_len + pdu->pad_len,
+				 &pdu->data_pad_recv);
 		if (rc < 0) {	/* error */
 			if (errno != EAGAIN)
 				goto err_out;
