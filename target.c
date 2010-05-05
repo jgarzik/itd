@@ -382,71 +382,70 @@ static int send_rsp_pdu(struct target_session *sess,
 	return 0;
 }
 
-static int scsi_command_t(struct target_session *sess, const uint8_t * header)
+static int scsi_command_t(struct target_session *sess, const uint8_t * header,
+			  struct iscsi_scsi_cmd_args *scsi_cmd)
 {
 	struct target_cmd cmd;
-	struct iscsi_scsi_cmd_args scsi_cmd;
 	uint32_t        DataSN = 0;
 
-	memset(&scsi_cmd, 0x0, sizeof(scsi_cmd));
-	if (iscsi_scsi_cmd_decap(header, &scsi_cmd) != 0) {
+	if (iscsi_scsi_cmd_decap(header, scsi_cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_scsi_cmd_decap() failed\n");
 		return -1;
 	}
 	iscsi_trace(TRACE_ISCSI_DEBUG | TRACE_SCSI_CMD, __FILE__, __LINE__,
 		    "session %d: SCSI Command (CmdSN %u, op %#x %s)\n", sess->id,
-		    scsi_cmd.CmdSN,
-		    scsi_cmd.cdb[0], sopstr(scsi_cmd.cdb[0]));
+		    scsi_cmd->CmdSN,
+		    scsi_cmd->cdb[0], sopstr(scsi_cmd->cdb[0]));
 
 	/* For Non-immediate commands, the CmdSN should be between ExpCmdSN  */
 	/* and MaxCmdSN, inclusive of both.  Otherwise, ignore the command */
-	if ((!scsi_cmd.immediate) && ((scsi_cmd.CmdSN < sess->ExpCmdSN)
-				      || (scsi_cmd.CmdSN > sess->MaxCmdSN))) {
+	if ((!scsi_cmd->immediate) && ((scsi_cmd->CmdSN < sess->ExpCmdSN)
+				      || (scsi_cmd->CmdSN > sess->MaxCmdSN))) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "CmdSN(%d) of SCSI Command not valid, ExpCmdSN(%d) MaxCmdSN(%d). Ignoring the command\n",
-				  scsi_cmd.CmdSN, sess->ExpCmdSN,
+				  scsi_cmd->CmdSN, sess->ExpCmdSN,
 				  sess->MaxCmdSN);
 		return 0;
 	}
 	/* Arg check.   */
-	scsi_cmd.attr = 0;	/* Temp fix FIXME */
+	scsi_cmd->attr = 0;	/* Temp fix FIXME */
 	/*
-	 * RETURN_NOT_EQUAL("ATTR (FIX ME)", scsi_cmd.attr, 0, NO_CLEANUP,
+	 * RETURN_NOT_EQUAL("ATTR (FIX ME)", scsi_cmd->attr, 0, NO_CLEANUP,
 	 * -1);
 	 */
 
 	/* Check Numbering */
 
-	if (scsi_cmd.CmdSN != sess->ExpCmdSN) {
+	if (scsi_cmd->CmdSN != sess->ExpCmdSN) {
 		iscsi_trace_warning(__FILE__, __LINE__,
 				    "Expected CmdSN %d, got %d. (ignoring and resetting expectations)\n",
-				    sess->ExpCmdSN, scsi_cmd.CmdSN);
-		sess->ExpCmdSN = scsi_cmd.CmdSN;
+				    sess->ExpCmdSN, scsi_cmd->CmdSN);
+		sess->ExpCmdSN = scsi_cmd->CmdSN;
 	}
 	/* Check Transfer Lengths */
 	if (sess->sess_params.first_burst
-	    && (scsi_cmd.length > sess->sess_params.first_burst)) {
+	    && (scsi_cmd->length > sess->sess_params.first_burst)) {
 		iscsi_trace_error(__FILE__, __LINE__,
-				  "scsi_cmd.length (%u) > FirstBurstLength (%u)\n",
-				  scsi_cmd.length,
+				  "scsi_cmd->length (%u) > FirstBurstLength (%u)\n",
+				  scsi_cmd->length,
 				  sess->sess_params.first_burst);
-		scsi_cmd.status = SCSI_CHECK_CONDITION;
-		scsi_cmd.length = 0;
+		scsi_cmd->status = SCSI_CHECK_CONDITION;
+		scsi_cmd->length = 0;
 		goto response;
 	}
 	if (sess->sess_params.max_data_seg
-	    && (scsi_cmd.length > sess->sess_params.max_data_seg)) {
+	    && (scsi_cmd->length > sess->sess_params.max_data_seg)) {
 		iscsi_trace_error(__FILE__, __LINE__,
-				  "scsi_cmd.length (%u) > MaxRecvDataSegmentLength (%u)\n",
-				  scsi_cmd.length,
+				  "scsi_cmd->length (%u) > MaxRecvDataSegmentLength (%u)\n",
+				  scsi_cmd->length,
 				  sess->sess_params.max_data_seg);
 		return -1;
 	}
 #if 0
 	/* commented out in original Intel reference code */
-	if (scsi_cmd.final && scsi_cmd.output) {
-		RETURN_NOT_EQUAL("Length", scsi_cmd.length, scsi_cmd.trans_len,
+	if (scsi_cmd->final && scsi_cmd->output) {
+		RETURN_NOT_EQUAL("Length", scsi_cmd->length, scsi_cmd->trans_len,
 				 NO_CLEANUP, -1);
 	}
 #endif
@@ -455,26 +454,26 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 	/* We should not be calling malloc(). */
 	/* We need to check for properly formated AHS segments. */
 
-	if (scsi_cmd.ahs_len) {
+	if (scsi_cmd->ahs_len) {
 		uint32_t        ahs_len;
 		uint8_t        *ahs_ptr;
 		uint8_t         ahs_type;
 
-		scsi_cmd.ahs = NULL;
+		scsi_cmd->ahs = NULL;
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "reading %d bytes AHS\n", scsi_cmd.ahs_len);
-		if ((scsi_cmd.ahs = malloc((unsigned)scsi_cmd.ahs_len)) == NULL) {
+			    "reading %d bytes AHS\n", scsi_cmd->ahs_len);
+		if ((scsi_cmd->ahs = malloc((unsigned)scsi_cmd->ahs_len)) == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "malloc() failed\n");
 			return -1;
 		}
 
-		memcpy(scsi_cmd.ahs, sess->pdu.ahs, scsi_cmd.ahs_len);
+		memcpy(scsi_cmd->ahs, sess->pdu.ahs, scsi_cmd->ahs_len);
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "read %d bytes AHS\n", scsi_cmd.ahs_len);
-		for (ahs_ptr = scsi_cmd.ahs;
-		     ahs_ptr < (scsi_cmd.ahs + scsi_cmd.ahs_len - 1);
+			    "read %d bytes AHS\n", scsi_cmd->ahs_len);
+		for (ahs_ptr = scsi_cmd->ahs;
+		     ahs_ptr < (scsi_cmd->ahs + scsi_cmd->ahs_len - 1);
 		     ahs_ptr += ahs_len) {
 			ahs_len = ntohs(*((uint16_t *) (void *)ahs_ptr));
 			RETURN_EQUAL("AHS Length", ahs_len, 0, goto err_out,-1);
@@ -484,18 +483,18 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 					    __LINE__,
 					    "Got ExtendedCDB AHS (%u bytes extra CDB)\n",
 					    ahs_len - 1);
-				scsi_cmd.ext_cdb = ahs_ptr + 4;
+				scsi_cmd->ext_cdb = ahs_ptr + 4;
 				break;
 			case ISCSI_AHS_BIDI_READ:
-				scsi_cmd.bidi_trans_len =
+				scsi_cmd->bidi_trans_len =
 				    ntohl(*
 					  ((uint32_t *) (void *)(ahs_ptr + 4)));
 				*((uint32_t *) (void *)(ahs_ptr + 4)) =
-				    scsi_cmd.bidi_trans_len;
+				    scsi_cmd->bidi_trans_len;
 				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
 					    __LINE__,
 					    "Got Bidirectional Read AHS (expected read length %u)\n",
-					    scsi_cmd.bidi_trans_len);
+					    scsi_cmd->bidi_trans_len);
 				break;
 			default:
 				iscsi_trace_error(__FILE__, __LINE__,
@@ -505,28 +504,28 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 			}
 		}
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "done parsing %d bytes AHS\n", scsi_cmd.ahs_len);
+			    "done parsing %d bytes AHS\n", scsi_cmd->ahs_len);
 	} else {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "no AHS to read\n");
-		scsi_cmd.ahs = NULL;
+		scsi_cmd->ahs = NULL;
 	}
 
 	sess->ExpCmdSN++;
 	sess->MaxCmdSN++;
 
-	/* Execute cdb.  device_command() will set scsi_cmd.input if */
+	/* Execute cdb.  device_command() will set scsi_cmd->input if */
 	/* there is input data and set the length of the input */
-	/* to either scsi_cmd.trans_len or scsi_cmd.bidi_trans_len, depending  */
-	/* on whether scsi_cmd.output was set. */
+	/* to either scsi_cmd->trans_len or scsi_cmd->bidi_trans_len, depending  */
+	/* on whether scsi_cmd->output was set. */
 
-	if (scsi_cmd.input) {
-		scsi_cmd.send_data = sess->pdu.data;
+	if (scsi_cmd->input) {
+		scsi_cmd->send_data = sess->pdu.data;
 	}
-	scsi_cmd.input = 0;
+	scsi_cmd->input = 0;
 
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.scsi_cmd = &scsi_cmd;
+	cmd.scsi_cmd = scsi_cmd;
 
 	if (device_command(sess, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -535,22 +534,22 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header)
 	}
 
 	/* Send any input data for READ commands */
-	scsi_cmd.bytes_sent = 0;
-	if (!scsi_cmd.status && scsi_cmd.input) {
-		if (send_read_data(sess, &scsi_cmd, &DataSN) < 0)
+	scsi_cmd->bytes_sent = 0;
+	if (!scsi_cmd->status && scsi_cmd->input) {
+		if (send_read_data(sess, scsi_cmd, &DataSN) < 0)
 			goto err_out;
 	}
 
 response:
 	/* Send response PDU, if required */
-	if (send_rsp_pdu(sess, &scsi_cmd, &DataSN) < 0)
+	if (send_rsp_pdu(sess, scsi_cmd, &DataSN) < 0)
 		goto err_out;
 
-	free(scsi_cmd.ahs);
+	free(scsi_cmd->ahs);
 	return 0;
 
 err_out:
-	free(scsi_cmd.ahs);
+	free(scsi_cmd->ahs);
 	return -1;
 }
 
@@ -1360,7 +1359,8 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_SCSI_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: SCSI Command\n", sess->id);
-		if (scsi_command_t(sess, header) != 0) {
+		memset(&sess->scsi_cmd, 0, sizeof(sess->scsi_cmd));
+		if (scsi_command_t(sess, header, &sess->scsi_cmd) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "scsi_command_t() failed\n");
 			return -1;

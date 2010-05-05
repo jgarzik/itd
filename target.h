@@ -209,6 +209,8 @@ struct target_session {
 
 	struct target_pdu pdu;
 
+	struct iscsi_scsi_cmd_args scsi_cmd;
+
 	int		fd;
 	struct sockaddr	addr;
 	struct event	ev;
