@@ -39,6 +39,7 @@
 uint32_t iscsi_debug_level = 0;
 
 static bool server_running = true;
+static bool opt_strict_free = false;
 void *data_mem = NULL;
 uint32_t data_mem_lba;
 
@@ -57,6 +58,10 @@ static struct argp_option options[] = {
 	  "Comma-separate list of one or more of: net, iscsi, scsi, osd, all" },
 	{ "port", 'p', "PORT", 0,
 	  "Bind to TCP port PORT.  Default: 3290 (iSCSI IANA registered port)" },
+	{ "strict-free", 1001, NULL, 0,
+	  "For memory-checker runs.  When shutting down server, free local "
+	  "heap, rather than simply exit(2)ing and letting OS clean up." },
+
 	{ }
 };
 
@@ -695,9 +700,9 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	return 0;
 }
 
-int device_shutdown(struct target_session *f)
+int device_shutdown(struct target_session *f, bool strict_free)
 {
-	return -1;
+	return 0;
 }
 
 static void tcp_srv_event(int fd, short events, void *userdata)
@@ -951,7 +956,7 @@ static int master_iscsi_init(void)
 
 static void master_iscsi_exit(void)
 {
-	target_shutdown(&gbls);
+	target_shutdown(&gbls, opt_strict_free);
 }
 
 static int mem_init(void)
@@ -995,6 +1000,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 			argp_usage(state);
 		}
 		break;
+	case 1001:
+		opt_strict_free = true;
+		break;
 
 	case ARGP_KEY_ARG:
 		argp_usage(state);	/* too many args */
@@ -1006,6 +1014,12 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	}
 
 	return 0;
+}
+
+static void term_signal(int signo)
+{
+	server_running = false;
+	event_loopbreak();
 }
 
 int main(int argc, char *argv[])
@@ -1023,6 +1037,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "argp_parse failed: %s\n", strerror(aprc));
 		return 1;
 	}
+
+	/* properly capture TERM and other signals */
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGINT, term_signal);
+	signal(SIGTERM, term_signal);
 
 	if (mem_init())
 		return 1;

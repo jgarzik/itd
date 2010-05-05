@@ -231,7 +231,7 @@ struct target_cmd {
 };
 
 extern int target_init(struct globals *, targv_t *, char *);
-extern int target_shutdown(struct globals *);
+extern int target_shutdown(struct globals *, bool);
 extern int target_accept(struct globals *gp, struct server_socket *sock);
 extern int target_sess_cleanup(struct target_session *sess);
 extern int target_transfer_data(struct target_session *,
@@ -248,7 +248,6 @@ extern int target_transfer_data(struct target_session *,
 
 extern int device_init(struct globals *, targv_t *, struct disc_target *);
 extern int device_command(struct target_session *, struct target_cmd *);
-extern int device_shutdown(struct target_session *);
-extern void device_set_var(const char *, char *);
+extern int device_shutdown(struct target_session *, bool);
 
 #endif /* _TARGET_H_ */

@@ -1721,7 +1721,7 @@ int target_sess_cleanup(struct target_session *sess)
 	return 0;
 }
 
-int target_shutdown(struct globals *gp)
+int target_shutdown(struct globals *gp, bool strict_free)
 {
 	struct target_session *sess;
 	struct list_head *tmp, *iter;
@@ -1739,13 +1739,14 @@ int target_shutdown(struct globals *gp)
 	list_for_each_safe(tmp, iter, &session_list) {
 		sess = list_entry(tmp, struct target_session, sessions_node);
 
-		if (device_shutdown(sess) != 0) {
+		if (device_shutdown(sess, strict_free) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "device_shutdown() failed\n");
 			return -1;
 		}
 
-		target_sess_cleanup(sess);
+		if (strict_free)
+			target_sess_cleanup(sess);
 	}
 
 	/* listen socket is shutdown at layer above us */
