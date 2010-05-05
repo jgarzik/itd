@@ -109,6 +109,7 @@ enum {
 
 static struct target_session *g_session;
 static LIST_HEAD(session_list);
+static int target_data_pdu(struct target_session *sess);
 
 /*********************
  * Private Functions *
@@ -538,11 +539,16 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 			goto err_out;
 	}
 
+	/* postpone response, if waiting on Data PDUs to arrive */
+	if (sess->want_data_pdu)
+		goto out;
+
 response:
 	/* Send response PDU, if required */
 	if (send_rsp_pdu(sess, scsi_cmd, &sess->DataSN) < 0)
 		goto err_out;
 
+out:
 	free(scsi_cmd->ahs);
 	return 0;
 
@@ -1303,6 +1309,15 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	if (verify_cmd_t(sess, header) != 0) {
 		return -1;
 	}
+
+	if (G_UNLIKELY(sess->want_data_pdu && (op != ISCSI_WRITE_DATA))) {
+		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
+			    "session %d: unexpected Command %#x when expecting Write Data\n",
+			    sess->id, op);
+
+		return -1;
+	}
+
 	switch (op) {
 	case ISCSI_TASK_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
@@ -1365,6 +1380,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 
 		memset(&sess->scsi_cmd, 0, sizeof(sess->scsi_cmd));
 		sess->DataSN = 0;
+		sess->n_iov = 0;
 
 		if (scsi_command_t(sess, header, &sess->scsi_cmd) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -1373,9 +1389,17 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 		}
 		break;
 
+	case ISCSI_WRITE_DATA:
+		if (sess->want_data_pdu) {
+			target_data_pdu(sess);
+			break;
+		}
+
+		/* fall through */
+
 	default:
 		iscsi_trace_error(__FILE__, __LINE__, "Unknown Opcode %#x\n",
-				  ISCSI_OPCODE(header));
+				  op);
 
 		if (reject_t(sess, header, 0x04) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -1391,6 +1415,8 @@ static int send_r2t(struct target_session *sess)
 {
 	int send_it = 0;
 	uint8_t         *header;
+
+	sess->want_data_pdu = true;
 
 	/*
 	 * Send R2T if we're either operating in solicted
@@ -1498,15 +1524,10 @@ read_data_pdu(struct target_session *sess,
 	return 0;
 }
 
-#define TTD_CLEANUP do {						\
-	free(iov_ptr);				\
-} while (/* CONSTCOND */ 0)
-
 static int target_data_pdu(struct target_session *sess)
 {
 	struct iscsi_write_data data;
 	int read_status;
-	struct iovec   *iov = NULL, *iov_ptr = NULL;
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "reading data pdu\n");
@@ -1530,9 +1551,10 @@ static int target_data_pdu(struct target_session *sess)
 
 	/* Scatter into destination buffers */
 
-	/* FIXME - VERY wrong - just a placeholder */
-	memcpy(iov[0].iov_base, sess->pdu.data, data.length);
-	iov[0].iov_len -= data.length;
+	sess->iov[sess->n_iov].iov_base = sess->pdu.data;
+	sess->pdu.data = NULL;
+
+	sess->iov[sess->n_iov++].iov_len = data.length;
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "successfully scattered %u bytes\n", data.length);
@@ -1569,9 +1591,22 @@ static int target_data_pdu(struct target_session *sess)
 
 	if (sess->xfer.bytes_recv < sess->xfer.trans_len) {
 		/* continue transfer */
-		/* FIXME: sess->readst = srs_data_hdr; */
+		if (send_r2t(sess) < 0)
+			return -1;
 	} else {
-		RETURN_NOT_EQUAL("Final bit", data.final, 1, TTD_CLEANUP, -1);
+		struct target_cmd cmd = {
+			.scsi_cmd	= &sess->scsi_cmd,
+		};
+
+		/* all bytes received, end transfer, complete transaction */
+		RETURN_NOT_EQUAL("Final bit", data.final, 1, , -1);
+		sess->want_data_pdu = false;
+
+		if (device_commit(sess, &cmd) < 0)
+			return -1;
+
+		if (send_rsp_pdu(sess, &sess->scsi_cmd, &sess->DataSN) < 0)
+			return -1;
 	}
 
 	return 0;
@@ -1579,12 +1614,8 @@ static int target_data_pdu(struct target_session *sess)
 }
 
 int target_transfer_data(struct target_session *sess,
-			 struct iscsi_scsi_cmd_args *scsi_cmd, struct iovec *sg,
-			 int sg_len)
+			 struct iscsi_scsi_cmd_args *scsi_cmd)
 {
-	struct iovec   *iov, *iov_ptr = NULL;
-	int             iov_len;
-
 	memset(&sess->xfer, 0, sizeof(sess->xfer));
 
 	if ((!sess->sess_params.immediate_data) && scsi_cmd->length) {
@@ -1593,15 +1624,6 @@ int target_transfer_data(struct target_session *sess,
 		scsi_cmd->status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
-	/* Make a copy of the iovec */
-
-	if ((iov_ptr = malloc(sizeof(struct iovec) * sg_len)) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
-		return -1;
-	}
-	iov = iov_ptr;
-	memcpy(iov, sg, sizeof(struct iovec) * sg_len);
-	iov_len = sg_len;
 
 	/*
 	 * Read any immediate data.
@@ -1610,28 +1632,18 @@ int target_transfer_data(struct target_session *sess,
 	if (sess->sess_params.immediate_data && scsi_cmd->length) {
 		if (sess->sess_params.max_data_seg) {
 			RETURN_GREATER("scsi_cmd->length", scsi_cmd->length,
-				       sess->sess_params.max_data_seg,
-				       TTD_CLEANUP, -1);
+				       sess->sess_params.max_data_seg, , -1);
 		}
-		/* Modify iov to include just immediate data */
 
-		if (modify_iov(&iov, &iov_len, 0, scsi_cmd->length) != 0) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "modify_iov() failed\n");
-			TTD_CLEANUP;
-			return -1;
-		}
-		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
-			    "reading %d bytes immediate write data\n",
-			    scsi_cmd->length);
+		sess->iov[sess->n_iov].iov_base = sess->pdu.data;
+		sess->pdu.data = NULL;
 
-		/* FIXME - VERY wrong - just a placeholder */
-		memcpy(iov[0].iov_base, sess->pdu.data, scsi_cmd->length);
-		iov[0].iov_len -= scsi_cmd->length;
+		sess->iov[sess->n_iov++].iov_len = scsi_cmd->length;
 
 		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
 			    "successfully read %d bytes immediate write data\n",
 			    scsi_cmd->length);
+
 		sess->xfer.bytes_recv += scsi_cmd->length;
 	}
 	/*
@@ -1639,7 +1651,7 @@ int target_transfer_data(struct target_session *sess,
 	 */
 
 	if (sess->xfer.bytes_recv >= scsi_cmd->trans_len) {
-		RETURN_NOT_EQUAL("Final bit", scsi_cmd->final, 1, TTD_CLEANUP, -1);
+		RETURN_NOT_EQUAL("Final bit", scsi_cmd->final, 1, , -1);
 		goto out;
 	}
 
@@ -1650,17 +1662,13 @@ int target_transfer_data(struct target_session *sess,
 
 	if (send_r2t(sess)) {
 		scsi_cmd->status = SCSI_CHECK_CONDITION;
-		TTD_CLEANUP;
 		return -1;
 	}
 
-	/* FIXME: sess->readst = srs_data_hdr; */
-
 out:
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-		    "successfully transferred %u bytes write data\n",
-		    scsi_cmd->trans_len);
-	TTD_CLEANUP;
+		    "successfully transferred initial %u bytes write data\n",
+		    sess->xfer.bytes_recv);
 	return 0;
 }
 

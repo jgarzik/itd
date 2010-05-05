@@ -504,6 +504,7 @@ err_out:
 }
 
 static void scsiop_data_xfer(struct target_session *sess,
+			     struct target_cmd *tc,
 			     struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf,
 			     bool is_write, int byte_size)
 {
@@ -526,13 +527,10 @@ static void scsiop_data_xfer(struct target_session *sess,
 	mem = data_mem + (lba * data_lba_size);
 
 	if (is_write) {
-		struct iovec sg;
-
-		sg.iov_base = mem;
-		sg.iov_len = MIN(scsi_cmd->trans_len, len * data_lba_size);
-
-		if (target_transfer_data(sess, scsi_cmd, &sg, 1) < 0)
-			goto err_out;
+		if (target_transfer_data(sess, scsi_cmd) < 0)
+			goto err_out;	/* FIXME: improve err-case sense */
+		if (!sess->want_data_pdu && (device_commit(sess, tc) < 0))
+			goto err_out;	/* FIXME: improve err-case sense */
 	} else {
 		scsi_cmd->input = 1;
 		scsi_cmd->send_data = mem;
@@ -542,6 +540,12 @@ static void scsiop_data_xfer(struct target_session *sess,
 
 err_out:
 	scsierr_inval(scsi_cmd, buf);
+}
+
+int device_commit(struct target_session *sess, struct target_cmd *tc)
+{
+	/* FIXME: handle committed WRITE data */
+	return 0;
 }
 
 int device_command(struct target_session *sess, struct target_cmd *tc)
@@ -660,27 +664,27 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 
 	case READ_6:
-		scsiop_data_xfer(sess, scsi_cmd, buf, false, 6);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, false, 6);
 		break;
 
 	case READ_10:
-		scsiop_data_xfer(sess, scsi_cmd, buf, false, 10);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, false, 10);
 		break;
 
 	case READ_16:
-		scsiop_data_xfer(sess, scsi_cmd, buf, false, 16);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, false, 16);
 		break;
 
 	case WRITE_6:
-		scsiop_data_xfer(sess, scsi_cmd, buf, true, 6);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, true, 6);
 		break;
 
 	case WRITE_10:
-		scsiop_data_xfer(sess, scsi_cmd, buf, true, 10);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, true, 10);
 		break;
 
 	case WRITE_16:
-		scsiop_data_xfer(sess, scsi_cmd, buf, true, 16);
+		scsiop_data_xfer(sess, tc, scsi_cmd, buf, true, 16);
 		break;
 
 	case PREFETCH_10:

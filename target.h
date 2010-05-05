@@ -56,6 +56,10 @@ enum {
 	DE_DEVICE
 };
 
+enum {
+	TARGET_MAX_IOV		= 1024,
+};
+
 /* a device can be made up of an extent or another device */
 struct disc_de {
 	int32_t		type;	/* device or extent */
@@ -211,6 +215,8 @@ struct target_session {
 
 	struct iscsi_scsi_cmd_args scsi_cmd;
 	uint32_t		DataSN;
+	bool			want_data_pdu;
+	unsigned int		n_iov;
 
 	int			fd;
 	struct sockaddr		addr;
@@ -222,6 +228,7 @@ struct target_session {
 
 	struct list_head	sessions_node;
 
+	struct iovec		iov[TARGET_MAX_IOV];
 	char			initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	char			addr_host[128];
 	uint8_t			outbuf[512];
@@ -236,8 +243,7 @@ extern int target_shutdown(struct globals *, bool);
 extern int target_accept(struct globals *gp, struct server_socket *sock);
 extern int target_sess_cleanup(struct target_session *sess);
 extern int target_transfer_data(struct target_session *,
-				struct iscsi_scsi_cmd_args *,
-				struct iovec *, int);
+				struct iscsi_scsi_cmd_args *);
 
 /*
  * Interface from target to device:
@@ -249,6 +255,7 @@ extern int target_transfer_data(struct target_session *,
 
 extern int device_init(struct globals *, targv_t *, struct disc_target *);
 extern int device_command(struct target_session *, struct target_cmd *);
+extern int device_commit(struct target_session *, struct target_cmd *);
 extern int device_shutdown(struct target_session *, bool);
 
 #endif /* _TARGET_H_ */
