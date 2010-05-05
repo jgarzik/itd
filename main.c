@@ -545,7 +545,6 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	struct iscsi_scsi_cmd_args *args = tc->scsi_cmd;
 	const uint8_t *cdb = args->cdb;
 	uint8_t *buf;
-	int rc = 0;
 	bool is_write;
 
 	switch (cdb[0]) {
@@ -693,7 +692,7 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 	}
 
-	return rc;
+	return 0;
 }
 
 int device_shutdown(struct target_session *f)
