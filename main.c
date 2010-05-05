@@ -531,9 +531,8 @@ static void scsiop_data_xfer(struct target_session *sess,
 		sg.iov_base = mem;
 		sg.iov_len = MIN(scsi_cmd->trans_len, len * data_lba_size);
 
-		if (target_transfer_data(sess, scsi_cmd, &sg, 1)) {
-			/* FIXME: handle failure... */
-		}
+		if (target_transfer_data(sess, scsi_cmd, &sg, 1) < 0)
+			goto err_out;
 	} else {
 		scsi_cmd->input = 1;
 		scsi_cmd->send_data = mem;
