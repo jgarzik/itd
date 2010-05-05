@@ -166,8 +166,6 @@ struct target_pdu {
 	unsigned int	data_pad_recv;
 
 	unsigned int	pad_len;
-
-	int		refs;
 };
 
 struct session_xfer {

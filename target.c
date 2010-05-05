@@ -114,33 +114,23 @@ static GList   *session_list;
  * Private Functions *
  *********************/
 
-static int pdu_cleanup(struct target_pdu *pdu)
+static void pdu_cleanup(struct target_pdu *pdu)
 {
 	if (!pdu)
-		return 0;
-
-	if (pdu->refs > 1) {
-		pdu->refs--;
-		return 1;
-	}
-
-	pdu->refs = 0;
+		return;
 
 	free(pdu->ahs);
 	free(pdu->data);
 
-	return 0;
+	pdu->ahs = NULL;
+	pdu->data = NULL;
 }
 
 static void pdu_reinit(struct target_pdu *pdu)
 {
-	if (pdu_cleanup(pdu) > 0)
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "pdu_cleanup with references held, STOMPING!!!\n");
+	pdu_cleanup(pdu);
 
 	memset(pdu, 0, sizeof(*pdu));
-
-	pdu->refs = 1;
 }
 
 static char *get_iqn(const struct target_session *sess, int t, char *buf,
