@@ -210,6 +210,7 @@ struct target_session {
 	struct target_pdu	pdu;
 
 	struct iscsi_scsi_cmd_args scsi_cmd;
+	uint32_t		DataSN;
 
 	int			fd;
 	struct sockaddr		addr;

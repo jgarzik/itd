@@ -388,7 +388,6 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 	struct target_cmd cmd = {
 		.scsi_cmd	= scsi_cmd,
 	};
-	uint32_t        DataSN = 0;
 
 	if (iscsi_scsi_cmd_decap(header, scsi_cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -535,13 +534,13 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 	/* Send any input data for READ commands */
 	scsi_cmd->bytes_sent = 0;
 	if (!scsi_cmd->status && scsi_cmd->input) {
-		if (send_read_data(sess, scsi_cmd, &DataSN) < 0)
+		if (send_read_data(sess, scsi_cmd, &sess->DataSN) < 0)
 			goto err_out;
 	}
 
 response:
 	/* Send response PDU, if required */
-	if (send_rsp_pdu(sess, scsi_cmd, &DataSN) < 0)
+	if (send_rsp_pdu(sess, scsi_cmd, &sess->DataSN) < 0)
 		goto err_out;
 
 	free(scsi_cmd->ahs);
@@ -1308,6 +1307,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_TASK_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: Task Command\n", sess->id);
+
 		if (task_command_t(sess, header) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "task_command_t() failed\n");
@@ -1318,6 +1318,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_NOP_OUT:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: NOP-Out\n", sess->id);
+
 		if (nop_out_t(sess, header) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "nop_out_t() failed\n");
@@ -1328,6 +1329,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_LOGIN_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: Login Command\n", sess->id);
+
 		if (login_command_t(sess, header) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "login_command_t() failed\n");
@@ -1338,6 +1340,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_TEXT_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: Text Command\n", sess->id);
+
 		if (text_command_t(sess, header) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "text_command_t() failed\n");
@@ -1348,6 +1351,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_LOGOUT_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: Logout Command\n", sess->id);
+
 		if (logout_command_t(sess, header) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "logout_command_t() failed\n");
@@ -1358,7 +1362,10 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	case ISCSI_SCSI_CMD:
 		iscsi_trace(TRACE_ISCSI_CMD, __FILE__, __LINE__,
 			    "session %d: SCSI Command\n", sess->id);
+
 		memset(&sess->scsi_cmd, 0, sizeof(sess->scsi_cmd));
+		sess->DataSN = 0;
+
 		if (scsi_command_t(sess, header, &sess->scsi_cmd) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "scsi_command_t() failed\n");
@@ -1369,6 +1376,7 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	default:
 		iscsi_trace_error(__FILE__, __LINE__, "Unknown Opcode %#x\n",
 				  ISCSI_OPCODE(header));
+
 		if (reject_t(sess, header, 0x04) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "reject_t() failed\n");
