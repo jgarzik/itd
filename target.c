@@ -1387,54 +1387,6 @@ static int execute_t(struct target_session *sess, const uint8_t *header)
 	return 0;
 }
 
-static int
-read_data_pdu(struct target_session *sess,
-	      struct iscsi_write_data *data)
-{
-	uint8_t         header[ISCSI_HEADER_LEN];
-	int             ret_val = -1;
-
-	memcpy(header, sess->pdu.header, sizeof(header));
-
-	if ((ret_val = iscsi_write_data_decap(header, data)) != 0) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "iscsi_write_data_decap() failed\n");
-		return ret_val;
-	}
-
-	/* Check args */
-	if (sess->sess_params.max_data_seg) {
-		if (data->length > sess->sess_params.max_data_seg) {
-			sess->xfer.status = SCSI_CHECK_CONDITION;
-			return -1;
-		}
-	}
-	if ((sess->xfer.bytes_recv + data->length) > sess->xfer.trans_len) {
-		sess->xfer.status = SCSI_CHECK_CONDITION;
-		return -1;
-	}
-	if (data->tag != sess->xfer.tag) {
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "Data ITT (%d) does not match with command ITT (%d)\n",
-			    data->tag, sess->xfer.tag);
-		if (data->final) {
-			sess->xfer.status = SCSI_CHECK_CONDITION;
-			return -1;
-		} else {
-			/* Send a reject PDU */
-			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-				    "Sending Reject PDU\n");
-			if (reject_t(sess, header, 0x09) != 0) {	/* Invalid PDU Field */
-				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
-					    __LINE__,
-					    "Sending Reject PDU failed\n");
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
 static int send_r2t(struct target_session *sess)
 {
 	int send_it = 0;
@@ -1495,6 +1447,54 @@ static int send_r2t(struct target_session *sess)
 	sess->xfer.r2t_flag = 1;
 	sess->xfer.r2t.R2TSN += 1;
 
+	return 0;
+}
+
+static int
+read_data_pdu(struct target_session *sess,
+	      struct iscsi_write_data *data)
+{
+	uint8_t         header[ISCSI_HEADER_LEN];
+	int             ret_val = -1;
+
+	memcpy(header, sess->pdu.header, sizeof(header));
+
+	if ((ret_val = iscsi_write_data_decap(header, data)) != 0) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "iscsi_write_data_decap() failed\n");
+		return ret_val;
+	}
+
+	/* Check args */
+	if (sess->sess_params.max_data_seg) {
+		if (data->length > sess->sess_params.max_data_seg) {
+			sess->xfer.status = SCSI_CHECK_CONDITION;
+			return -1;
+		}
+	}
+	if ((sess->xfer.bytes_recv + data->length) > sess->xfer.trans_len) {
+		sess->xfer.status = SCSI_CHECK_CONDITION;
+		return -1;
+	}
+	if (data->tag != sess->xfer.tag) {
+		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+			    "Data ITT (%d) does not match with command ITT (%d)\n",
+			    data->tag, sess->xfer.tag);
+		if (data->final) {
+			sess->xfer.status = SCSI_CHECK_CONDITION;
+			return -1;
+		} else {
+			/* Send a reject PDU */
+			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
+				    "Sending Reject PDU\n");
+			if (reject_t(sess, header, 0x09) != 0) {	/* Invalid PDU Field */
+				iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
+					    __LINE__,
+					    "Sending Reject PDU failed\n");
+				return 1;
+			}
+		}
+	}
 	return 0;
 }
 
@@ -1579,7 +1579,7 @@ static int target_data_pdu(struct target_session *sess)
 }
 
 int target_transfer_data(struct target_session *sess,
-			 struct iscsi_scsi_cmd_args *args, struct iovec *sg,
+			 struct iscsi_scsi_cmd_args *scsi_cmd, struct iovec *sg,
 			 int sg_len)
 {
 	struct iovec   *iov, *iov_ptr = NULL;
@@ -1587,10 +1587,10 @@ int target_transfer_data(struct target_session *sess,
 
 	memset(&sess->xfer, 0, sizeof(sess->xfer));
 
-	if ((!sess->sess_params.immediate_data) && args->length) {
+	if ((!sess->sess_params.immediate_data) && scsi_cmd->length) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "Cannot accept any Immediate data\n");
-		args->status = SCSI_CHECK_CONDITION;
+		scsi_cmd->status = SCSI_CHECK_CONDITION;
 		return -1;
 	}
 	/* Make a copy of the iovec */
@@ -1607,15 +1607,15 @@ int target_transfer_data(struct target_session *sess,
 	 * Read any immediate data.
 	 */
 
-	if (sess->sess_params.immediate_data && args->length) {
+	if (sess->sess_params.immediate_data && scsi_cmd->length) {
 		if (sess->sess_params.max_data_seg) {
-			RETURN_GREATER("args->length", args->length,
+			RETURN_GREATER("scsi_cmd->length", scsi_cmd->length,
 				       sess->sess_params.max_data_seg,
 				       TTD_CLEANUP, -1);
 		}
 		/* Modify iov to include just immediate data */
 
-		if (modify_iov(&iov, &iov_len, 0, args->length) != 0) {
+		if (modify_iov(&iov, &iov_len, 0, scsi_cmd->length) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "modify_iov() failed\n");
 			TTD_CLEANUP;
@@ -1623,33 +1623,33 @@ int target_transfer_data(struct target_session *sess,
 		}
 		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
 			    "reading %d bytes immediate write data\n",
-			    args->length);
+			    scsi_cmd->length);
 
 		/* FIXME - VERY wrong - just a placeholder */
-		memcpy(iov[0].iov_base, sess->pdu.data, args->length);
-		iov[0].iov_len -= args->length;
+		memcpy(iov[0].iov_base, sess->pdu.data, scsi_cmd->length);
+		iov[0].iov_len -= scsi_cmd->length;
 
 		iscsi_trace(TRACE_SCSI_DATA, __FILE__, __LINE__,
 			    "successfully read %d bytes immediate write data\n",
-			    args->length);
-		sess->xfer.bytes_recv += args->length;
+			    scsi_cmd->length);
+		sess->xfer.bytes_recv += scsi_cmd->length;
 	}
 	/*
 	 * Read iSCSI data PDUs
 	 */
 
-	if (sess->xfer.bytes_recv >= args->trans_len) {
-		RETURN_NOT_EQUAL("Final bit", args->final, 1, TTD_CLEANUP, -1);
+	if (sess->xfer.bytes_recv >= scsi_cmd->trans_len) {
+		RETURN_NOT_EQUAL("Final bit", scsi_cmd->final, 1, TTD_CLEANUP, -1);
 		goto out;
 	}
 
-	sess->xfer.tag = args->tag;
-	sess->xfer.trans_len = args->trans_len;
+	sess->xfer.tag = scsi_cmd->tag;
+	sess->xfer.trans_len = scsi_cmd->trans_len;
 	sess->xfer.desired_len = MIN(sess->sess_params.first_burst,
-			       args->trans_len) - sess->xfer.bytes_recv;
+			       scsi_cmd->trans_len) - sess->xfer.bytes_recv;
 
 	if (send_r2t(sess)) {
-		args->status = SCSI_CHECK_CONDITION;
+		scsi_cmd->status = SCSI_CHECK_CONDITION;
 		TTD_CLEANUP;
 		return -1;
 	}
@@ -1659,7 +1659,7 @@ int target_transfer_data(struct target_session *sess,
 out:
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "successfully transferred %u bytes write data\n",
-		    args->trans_len);
+		    scsi_cmd->trans_len);
 	TTD_CLEANUP;
 	return 0;
 }
