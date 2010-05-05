@@ -217,18 +217,18 @@ static int sense_inval_field(bool desc, uint8_t *buf)
 	return sense_fill(desc, buf, SKEY_ILLEGAL_REQUEST, 0x24, 0x0);
 }
 
-static void scsierr_inval(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+static void scsierr_inval(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
 {
 	/* invalid field in CDB */
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_inval_field(false, buf);
+	scsi_cmd->status = SCSI_CHECK_CONDITION;
+	scsi_cmd->length = sense_inval_field(false, buf);
 }
 
-static void scsierr_opcode(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+static void scsierr_opcode(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
 {
 	/* unknown SCSI opcode */
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
+	scsi_cmd->status = SCSI_CHECK_CONDITION;
+	scsi_cmd->length = sense_fill(false, buf, SKEY_ILLEGAL_REQUEST, 0x20, 0x0);
 }
 
 static int device_id;
@@ -238,7 +238,7 @@ int device_init(struct globals *a, targv_t * b, struct disc_target *c)
 	return ++device_id;
 }
 
-static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
+static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *rbuf)
 {
 	const uint8_t versions[] = {
 		0x60,   /* SAM-3 (no version claimed) */
@@ -267,11 +267,11 @@ static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
 
         memcpy(rbuf + 59, versions, sizeof(versions));
 
-	args->length = 95;
-	args->input = 1;
+	scsi_cmd->length = 95;
+	scsi_cmd->input = 1;
 }
 
-static void scsiop_inquiry_list(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
+static void scsiop_inquiry_list(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *rbuf)
 {
 	const uint8_t pages[] = {
 		0x00,   /* page 0x00, list of pages (this page) */
@@ -281,11 +281,11 @@ static void scsiop_inquiry_list(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf)
 	rbuf[3] = sizeof(pages);	/* number of supported VPD pages */
 	memcpy(rbuf + 4, pages, sizeof(pages));
 
-	args->length = 4 + sizeof(pages);
-	args->input = 1;
+	scsi_cmd->length = 4 + sizeof(pages);
+	scsi_cmd->input = 1;
 }
 
-static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
 {
 	uint16_t *page_len = (uint16_t *) (buf + 2);
 	uint16_t i = 4;
@@ -305,8 +305,8 @@ static void scsiop_inquiry_devid(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 
 	*page_len = htons(i - 4);
 
-	args->length = i;
-	args->input = 1;
+	scsi_cmd->length = i;
+	scsi_cmd->input = 1;
 }
 
 static unsigned int msense_ctl_mode(uint8_t *buf)
@@ -339,10 +339,10 @@ static unsigned int msense_medium_types(uint8_t *buf)
 	return sizeof(def_medium_types_mpage);
 }
 
-static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
+static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *rbuf,
 			      bool six_byte)
 {
-	const uint8_t *scsicmd = args->cdb;
+	const uint8_t *scsicmd = scsi_cmd->cdb;
 	uint8_t *p = rbuf;
 	const uint8_t blk_desc[] = {
 		0, 0, 0, 0,	/* number of blocks */
@@ -438,22 +438,22 @@ static void scsiop_mode_sense(struct iscsi_scsi_cmd_args *args, uint8_t *rbuf,
 		}
 	}
 
-	args->length = p - rbuf;
-	args->input = 1;
+	scsi_cmd->length = p - rbuf;
+	scsi_cmd->input = 1;
 	return;
 
 invalid_fld:
-	scsierr_inval(args, rbuf);
+	scsierr_inval(scsi_cmd, rbuf);
 	return;
 
 saving_not_supp:
 	 /* "Saving parameters not supported" */
-	args->status = SCSI_CHECK_CONDITION;
-	args->length = sense_fill(false, rbuf, SKEY_ILLEGAL_REQUEST, 0x39, 0x0);
+	scsi_cmd->status = SCSI_CHECK_CONDITION;
+	scsi_cmd->length = sense_fill(false, rbuf, SKEY_ILLEGAL_REQUEST, 0x39, 0x0);
 	return;
 }
 
-static void scsiop_read_cap(struct iscsi_scsi_cmd_args *args, uint8_t *buf,
+static void scsiop_read_cap(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf,
 			    bool short_form)
 {
 	uint32_t *buf32 = (uint32_t *) buf;
@@ -462,30 +462,30 @@ static void scsiop_read_cap(struct iscsi_scsi_cmd_args *args, uint8_t *buf,
 		buf32[0] = htonl(data_mem_lba - 1);
 		buf32[1] = htonl(data_lba_size);
 
-		args->length = 4 * 2;
+		scsi_cmd->length = 4 * 2;
 	} else {
 		*((uint64_t *)buf) = GUINT64_TO_BE((uint64_t)data_mem_lba - 1);
 		buf32[2] = htonl(data_lba_size);
 
-		args->length = 4 * 3;
+		scsi_cmd->length = 4 * 3;
 	}
 
-	args->input = 1;
+	scsi_cmd->input = 1;
 }
 
-static void scsiop_report_luns(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+static void scsiop_report_luns(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
 {
 	uint32_t *buf32 = (uint32_t *) buf;
 
 	*buf32 = htonl(1 * 8);		/* one LUN, whose value is zero */
 
-	args->length = 8 + (1 * 8);
-	args->input = 1;
+	scsi_cmd->length = 8 + (1 * 8);
+	scsi_cmd->input = 1;
 }
 
-static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
+static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
 {
-	const uint8_t *cdb = args->cdb;
+	const uint8_t *cdb = scsi_cmd->cdb;
 	uint32_t alloc_len;
 
 	alloc_len = scsi_d32(cdb + 6);
@@ -494,20 +494,20 @@ static void scsiop_supported_tmf(struct iscsi_scsi_cmd_args *args, uint8_t *buf)
 
 	/* we support no TMFs at present; leave data zeroed */
 
-	args->length = 4;
-	args->input = 1;
+	scsi_cmd->length = 4;
+	scsi_cmd->input = 1;
 
 	return;
 
 err_out:
-	scsierr_inval(args, buf);
+	scsierr_inval(scsi_cmd, buf);
 }
 
 static void scsiop_data_xfer(struct target_session *sess,
-			     struct iscsi_scsi_cmd_args *args, uint8_t *buf,
+			     struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf,
 			     bool is_write, int byte_size)
 {
-	const uint8_t *cdb = args->cdb;
+	const uint8_t *cdb = scsi_cmd->cdb;
 	uint64_t lba = 0;
 	uint32_t len = 0;
 	void *mem;
@@ -529,26 +529,26 @@ static void scsiop_data_xfer(struct target_session *sess,
 		struct iovec sg;
 
 		sg.iov_base = mem;
-		sg.iov_len = MIN(args->trans_len, len * data_lba_size);
+		sg.iov_len = MIN(scsi_cmd->trans_len, len * data_lba_size);
 
-		if (target_transfer_data(sess, args, &sg, 1)) {
+		if (target_transfer_data(sess, scsi_cmd, &sg, 1)) {
 			/* FIXME: handle failure... */
 		}
 	} else {
-		args->input = 1;
-		args->send_data = mem;
+		scsi_cmd->input = 1;
+		scsi_cmd->send_data = mem;
 	}
 
 	return;
 
 err_out:
-	scsierr_inval(args, buf);
+	scsierr_inval(scsi_cmd, buf);
 }
 
 int device_command(struct target_session *sess, struct target_cmd *tc)
 {
-	struct iscsi_scsi_cmd_args *args = tc->scsi_cmd;
-	const uint8_t *cdb = args->cdb;
+	struct iscsi_scsi_cmd_args *scsi_cmd = tc->scsi_cmd;
+	const uint8_t *cdb = scsi_cmd->cdb;
 	uint8_t *buf;
 	bool is_write;
 
@@ -564,12 +564,12 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 	}
 
-	args->status = SCSI_SUCCESS;
+	scsi_cmd->status = SCSI_SUCCESS;
 
 	if (!is_write)
-		args->length = 0;
+		scsi_cmd->length = 0;
 
-	args->send_data = buf = sess->outbuf;
+	scsi_cmd->send_data = buf = sess->outbuf;
 
 	memset(buf, 0, sizeof(sess->outbuf));
 
@@ -579,32 +579,32 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		if ((cdb[1] & 0x1f) == 0)
 			memset(data_mem, 0, data_mem_lba * data_lba_size);
 		else
-			scsierr_inval(args, buf);
+			scsierr_inval(scsi_cmd, buf);
 		break;
 
 	case INQUIRY:
 		if (cdb[1] & (1 << 1))			/* CmdDt set? */
-			scsierr_inval(args, buf);
+			scsierr_inval(scsi_cmd, buf);
 
 		else if (!(cdb[1] & (1 << 0)))		/* EVPD clear? */
-			scsiop_inquiry_std(args, buf);
+			scsiop_inquiry_std(scsi_cmd, buf);
 
 		else
 			switch (cdb[2]) {		/* EVPD page */
-			case 0x00:	scsiop_inquiry_list(args, buf); break;
-			case 0x83:	scsiop_inquiry_devid(args, buf); break;
-			default:	scsierr_inval(args, buf); break;
+			case 0x00:	scsiop_inquiry_list(scsi_cmd, buf); break;
+			case 0x83:	scsiop_inquiry_devid(scsi_cmd, buf); break;
+			default:	scsierr_inval(scsi_cmd, buf); break;
 			}
 		break;
 
 	case MAINTENANCE_IN:
 		switch (cdb[1] & 0x1f) {	/* service action */
 		case SAI_SUPPORTED_TMF:
-			scsiop_supported_tmf(args, buf);
+			scsiop_supported_tmf(scsi_cmd, buf);
 			break;
 
 		default:
-			scsierr_opcode(args, buf);
+			scsierr_opcode(scsi_cmd, buf);
 			break;
 		}
 		break;
@@ -612,76 +612,76 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 	case MODE_SELECT_6:
 	case MODE_SELECT_10:
 		/* unconditionally return invalid-field-in-CDB */
-		scsierr_inval(args, buf);
+		scsierr_inval(scsi_cmd, buf);
 		break;
 
 	case MODE_SENSE:
-		scsiop_mode_sense(args, buf, true);
+		scsiop_mode_sense(scsi_cmd, buf, true);
 		break;
 
 	case MODE_SENSE_10:
-		scsiop_mode_sense(args, buf, false);
+		scsiop_mode_sense(scsi_cmd, buf, false);
 		break;
 
 	case READ_CAPACITY:
-		scsiop_read_cap(args, buf, true);
+		scsiop_read_cap(scsi_cmd, buf, true);
 		break;
 
 	case REPORT_LUNS:
-		scsiop_report_luns(args, buf);
+		scsiop_report_luns(scsi_cmd, buf);
 		break;
 
 	case REQUEST_SENSE:
-		args->length = sense_fill(cdb[1] & (1 << 0), buf, 0, 0, 0);
-		args->input = 1;
+		scsi_cmd->length = sense_fill(cdb[1] & (1 << 0), buf, 0, 0, 0);
+		scsi_cmd->input = 1;
 		break;
 
 	case SEEK_10:
 		/* provided a valid range, seek is a no-op */
 		if (scsi_d32(cdb + 2) >= data_mem_lba)
-			scsierr_inval(args, buf);
+			scsierr_inval(scsi_cmd, buf);
 		break;
 
 	case SEND_DIAGNOSTIC:
 		/* default test immediately succeeds. all others invalid. */
 		if (scsi_d16(cdb + 3) || !(cdb[1] & (1 << 2)))
-			scsierr_inval(args, buf);
+			scsierr_inval(scsi_cmd, buf);
 		break;
 
 	case SERVICE_ACTION_IN:
 		switch (cdb[1] & 0x1f) {	/* service action */
 		case SAI_READ_CAPACITY_16:
-			scsiop_read_cap(args, buf, false);
+			scsiop_read_cap(scsi_cmd, buf, false);
 			break;
 
 		default:
-			scsierr_opcode(args, buf);
+			scsierr_opcode(scsi_cmd, buf);
 			break;
 		}
 		break;
 
 	case READ_6:
-		scsiop_data_xfer(sess, args, buf, false, 6);
+		scsiop_data_xfer(sess, scsi_cmd, buf, false, 6);
 		break;
 
 	case READ_10:
-		scsiop_data_xfer(sess, args, buf, false, 10);
+		scsiop_data_xfer(sess, scsi_cmd, buf, false, 10);
 		break;
 
 	case READ_16:
-		scsiop_data_xfer(sess, args, buf, false, 16);
+		scsiop_data_xfer(sess, scsi_cmd, buf, false, 16);
 		break;
 
 	case WRITE_6:
-		scsiop_data_xfer(sess, args, buf, true, 6);
+		scsiop_data_xfer(sess, scsi_cmd, buf, true, 6);
 		break;
 
 	case WRITE_10:
-		scsiop_data_xfer(sess, args, buf, true, 10);
+		scsiop_data_xfer(sess, scsi_cmd, buf, true, 10);
 		break;
 
 	case WRITE_16:
-		scsiop_data_xfer(sess, args, buf, true, 16);
+		scsiop_data_xfer(sess, scsi_cmd, buf, true, 16);
 		break;
 
 	case PREFETCH_10:
@@ -693,7 +693,7 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		break;
 
 	default:
-		scsierr_opcode(args, buf);
+		scsierr_opcode(scsi_cmd, buf);
 		break;
 	}
 
