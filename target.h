@@ -219,6 +219,8 @@ struct target_session {
 
 	struct session_xfer xfer;
 
+	struct list_head sessions_node;
+
 	char            initiator[MAX_INITIATOR_ADDRESS_SIZE];
 	char		addr_host[128];
 	uint8_t		outbuf[512];

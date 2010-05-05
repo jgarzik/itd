@@ -108,7 +108,7 @@ enum {
  ***********/
 
 static struct target_session *g_session;
-static GList   *session_list;
+static LIST_HEAD(session_list);
 
 /*********************
  * Private Functions *
@@ -385,7 +385,9 @@ static int send_rsp_pdu(struct target_session *sess,
 static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 			  struct iscsi_scsi_cmd_args *scsi_cmd)
 {
-	struct target_cmd cmd;
+	struct target_cmd cmd = {
+		.scsi_cmd	= scsi_cmd,
+	};
 	uint32_t        DataSN = 0;
 
 	if (iscsi_scsi_cmd_decap(header, scsi_cmd) != 0) {
@@ -523,9 +525,6 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 		scsi_cmd->send_data = sess->pdu.data;
 	}
 	scsi_cmd->input = 0;
-
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.scsi_cmd = scsi_cmd;
 
 	if (device_command(sess, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -1714,6 +1713,8 @@ int target_sess_cleanup(struct target_session *sess)
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "session %d: ended\n", sess->id);
 
+	list_del(&sess->sessions_node);
+
 	/* Destroy session */
 	free(sess);
 
@@ -1723,7 +1724,7 @@ int target_sess_cleanup(struct target_session *sess)
 int target_shutdown(struct globals *gp)
 {
 	struct target_session *sess;
-	GList          *tmp;
+	struct list_head *tmp, *iter;
 
 	if ((gp->state == TARGET_SHUTTING_DOWN)
 	    || (gp->state == TARGET_SHUT_DOWN)) {
@@ -1735,11 +1736,8 @@ int target_shutdown(struct globals *gp)
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "shutting down target\n");
 
-	tmp = session_list;
-	while (tmp) {
-		sess = tmp->data;
-
-		/* Need to replace with a call to session_destroy() */
+	list_for_each_safe(tmp, iter, &session_list) {
+		sess = list_entry(tmp, struct target_session, sessions_node);
 
 		if (device_shutdown(sess) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
@@ -1748,12 +1746,7 @@ int target_shutdown(struct globals *gp)
 		}
 
 		target_sess_cleanup(sess);
-
-		tmp = tmp->next;
 	}
-
-	g_list_free(session_list);
-	session_list = NULL;
 
 	/* listen socket is shutdown at layer above us */
 
@@ -1946,6 +1939,8 @@ int target_accept(struct globals *gp, struct server_socket *sock)
 		return -1;
 	}
 
+	INIT_LIST_HEAD(&sess->sessions_node);
+
 	sess->fd = accept(sock->fd, (struct sockaddr *) &sess->addr, &addrlen);
 	if (sess->fd < 0) {
 		iscsi_trace(TRACE_NET_DEBUG, __FILE__, __LINE__,
@@ -2087,6 +2082,8 @@ int target_accept(struct globals *gp, struct server_socket *sock)
 
 	/* Begin PDU input loop */
 	target_read_hdr(sess);
+
+	list_add_tail(&sess->sessions_node, &session_list);
 
 	return 0;
 
