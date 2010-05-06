@@ -979,6 +979,9 @@ static int master_iscsi_init(void)
 static void master_iscsi_exit(void)
 {
 	target_shutdown(&gbls, opt_strict_free);
+
+	if (opt_strict_free)
+		free(data_mem);
 }
 
 static int mem_init(void)
