@@ -64,7 +64,7 @@ static struct argp_option options[] = {
 	  "For memory-checker runs.  When shutting down server, free local "
 	  "heap, rather than simply exit(2)ing and letting OS clean up." },
 	{ "trace", 'T', "TRACE-LIST", 0,
-	  "Comma-separate list of one or more of: net, iscsi, scsi, osd, all" },
+	  "Comma-separated list of one or more of: net, iscsi, scsi, osd, all"},
 
 	{ }
 };
