@@ -317,7 +317,8 @@ static int send_rsp_pdu(struct target_session *sess,
 	 * Send a response PDU if
 	 *
 	 * 1) we're not using phase collapsed input (and status was good)
-	 * 2) we are using phase collapsed input, but there was no input data (e.g., TEST UNIT READY)
+	 * 2) we are using phase collapsed input, but there was no input data
+	 *    (e.g., TEST UNIT READY)
 	 * 3) command had non-zero status and possible sense data
 	 */
 
@@ -405,11 +406,14 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 	if ((!scsi_cmd->immediate) && ((scsi_cmd->CmdSN < sess->ExpCmdSN)
 				      || (scsi_cmd->CmdSN > sess->MaxCmdSN))) {
 		iscsi_trace_error(__FILE__, __LINE__,
-				  "CmdSN(%d) of SCSI Command not valid, ExpCmdSN(%d) MaxCmdSN(%d). Ignoring the command\n",
+				  "CmdSN(%d) of SCSI Command not valid, "
+				  "ExpCmdSN(%d) MaxCmdSN(%d). "
+				  "Ignoring the command\n",
 				  scsi_cmd->CmdSN, sess->ExpCmdSN,
 				  sess->MaxCmdSN);
 		return 0;
 	}
+
 	/* Arg check.   */
 	scsi_cmd->attr = 0;	/* Temp fix FIXME */
 	/*
@@ -418,7 +422,6 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 	 */
 
 	/* Check Numbering */
-
 	if (scsi_cmd->CmdSN != sess->ExpCmdSN) {
 		iscsi_trace_warning(__FILE__, __LINE__,
 				    "Expected CmdSN %d, got %d. (ignoring and resetting expectations)\n",
