@@ -1701,7 +1701,7 @@ int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 
 	gp->state = TARGET_INITIALIZED;
 
-	printf("TARGET: TargetName is %s\n", gp->targetname);
+	fprintf(stderr, "TARGET: TargetName is %s\n", gp->targetname);
 
 	return 0;
 }

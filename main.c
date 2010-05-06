@@ -41,11 +41,12 @@ uint32_t iscsi_debug_level = 0;
 static bool server_running = true;
 static bool opt_strict_free = false;
 void *data_mem = NULL;
-uint32_t data_mem_lba;
 
 enum {
 	data_lba_size	= 512,
 };
+
+static uint64_t data_mem_lba = (100 * 1024 * 1024) / data_lba_size;
 
 static struct globals gbls = {
 	.port		= 3260,
@@ -54,13 +55,16 @@ static struct globals gbls = {
 const char *argp_program_version = PACKAGE_VERSION;
 
 static struct argp_option options[] = {
-	{ "trace", 'T', "TRACE-LIST", 0,
-	  "Comma-separate list of one or more of: net, iscsi, scsi, osd, all" },
+	{ "memsize", 'm', "VALUE", 0,
+	  "Choose size of RAM storage area, where VALUE is a number with "
+	  "a 'k', 'm', or 'g' suffix, eg. 100k, 100m, 100g.  Default: 100m" },
 	{ "port", 'p', "PORT", 0,
-	  "Bind to TCP port PORT.  Default: 3290 (iSCSI IANA registered port)" },
+	  "Bind to TCP port PORT. Default: 3290 (iSCSI IANA registered port)" },
 	{ "strict-free", 1001, NULL, 0,
 	  "For memory-checker runs.  When shutting down server, free local "
 	  "heap, rather than simply exit(2)ing and letting OS clean up." },
+	{ "trace", 'T', "TRACE-LIST", 0,
+	  "Comma-separate list of one or more of: net, iscsi, scsi, osd, all" },
 
 	{ }
 };
@@ -989,11 +993,31 @@ static void master_iscsi_exit(void)
 
 static int mem_init(void)
 {
-	data_mem_lba = (100 * 1024 * 1024) / data_lba_size;
+	const char *suffix;
+	unsigned long long pr_len, alloc_len = data_mem_lba * data_lba_size;
 
-	data_mem = calloc(1, data_mem_lba * data_lba_size);
-	if (!data_mem)
+	data_mem = calloc(1, alloc_len);
+	if (!data_mem) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "Out of memory allocating %llu bytes "
+				  "for RAM storage\n",
+				  alloc_len);
 		return -1;
+	}
+
+	if (alloc_len >= (1024 * 1024 * 1024)) {
+		suffix = "GB";
+		pr_len = alloc_len / (1024 * 1024 * 1024);
+	} else if (alloc_len >= (1024 * 1024)) {
+		suffix = "MB";
+		pr_len = alloc_len / (1024 * 1024);
+	} else {
+		suffix = "KB";
+		pr_len = alloc_len / 1024;
+	}
+
+	fprintf(stderr, "Initialized %llu%s of RAM storage\n",
+		pr_len, suffix);
 
 	return 0;
 }
@@ -1001,9 +1025,30 @@ static int mem_init(void)
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
 	int v;
-	char *initial_str, *s;
+	unsigned long long uv;
+	char *initial_str, *s, cv;
 
 	switch(key) {
+	case 'm':
+		if ((sscanf(arg, "%llu%c", &uv, &cv) == 2) && (uv > 0)) {
+			if (cv == 'k' || cv == 'K')
+				data_mem_lba = (uv * 1024) / data_lba_size;
+			else if (cv == 'm' || cv == 'M')
+				data_mem_lba = (uv * 1024 * 1024) / data_lba_size;
+			else if (cv == 'g' || cv == 'G')
+				data_mem_lba = (uv * 1024 * 1024 * 1024) / data_lba_size;
+			else {
+				fprintf(stderr, "Invalid memsize '%s'\n", arg);
+				argp_usage(state);
+			}
+		}
+
+		else {
+			fprintf(stderr, "Invalid memsize '%s'\n", arg);
+			argp_usage(state);
+		}
+		break;
+
 	case 'T':
 		initial_str = arg;
 		while ((s = strtok(initial_str, ", ")) != NULL) {
