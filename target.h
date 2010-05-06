@@ -143,7 +143,6 @@ struct globals {
 	char		targetaddress[MAX_TGT_NAME_SIZE];	/* iSCSI TargetAddress */
 	targv_t	 *tv;	/* array of target devices */
 	int		address_family;	/* global default IP address family */
-	int		max_sessions;	/* maximum number of sessions */
 	uint32_t	last_tsih;	/* the last TSIH that was used */
 	struct list_head sockets;
 	char		host[128];

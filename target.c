@@ -107,7 +107,6 @@ enum {
  * Private *
  ***********/
 
-static struct target_session *g_session;
 static LIST_HEAD(session_list);
 static int target_data_pdu(struct target_session *sess);
 
@@ -1683,8 +1682,6 @@ int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 {
 	int             i;
 
-	NEWARRAY(struct target_session, g_session, gp->max_sessions,
-		 "target_init", return -1);
 	strlcpy(gp->targetname, TargetName, sizeof(gp->targetname));
 	if (gp->state == TARGET_INITIALIZING || gp->state == TARGET_INITIALIZED) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -1695,7 +1692,7 @@ int target_init(struct globals *gp, targv_t * tv, char *TargetName)
 	gp->tv = tv;
 
 	for (i = 0; i < tv->c; i++) {
-		if ((g_session[i].d = device_init(gp, tv, &tv->v[i])) < 0) {
+		if (device_init(gp, tv, &tv->v[i]) < 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "device_init() failed\n");
 			return -1;
