@@ -527,6 +527,9 @@ static void scsiop_data_xfer(struct target_session *sess,
 	mem = data_mem + (lba * data_lba_size);
 
 	if (is_write) {
+		scsi_cmd->output = 1;
+		scsi_cmd->recv_data = mem;
+
 		if (target_transfer_data(sess, scsi_cmd) < 0)
 			goto err_out;	/* FIXME: improve err-case sense */
 		if (!sess->want_data_pdu && (device_commit(sess, tc) < 0))
@@ -544,7 +547,23 @@ err_out:
 
 int device_commit(struct target_session *sess, struct target_cmd *tc)
 {
-	/* FIXME: handle committed WRITE data */
+	int i;
+	struct iscsi_scsi_cmd_args *scsi_cmd = tc->scsi_cmd;
+	void *p = scsi_cmd->recv_data;
+
+	for (i = 0; i < sess->n_iov; i++) {
+		struct iovec *iov;
+
+		iov = &sess->iov[i];
+		memcpy(p, iov->iov_base, iov->iov_len);
+		p += iov->iov_len;
+
+		free(iov->iov_base);
+	}
+
+	scsi_cmd->recv_data = NULL;
+	sess->n_iov = 0;
+
 	return 0;
 }
 
