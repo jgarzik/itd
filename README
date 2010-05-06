@@ -4,6 +4,25 @@ Usage instructions:
 
 Simply execute itd.  It automatically binds to the specified port,
 and begins servicing iSCSI requests against a heap-allocated slice
-of memory.
+of memory.  After that, standard iSCSI initiator/target connection
+instructions apply.
+
+
+
+Instructions to logging into an itd target using the Linux kernel's
+iSCSI initiator:
+
+1) Issue discovery, and get target info into iscsiadm local database
+# iscsiadm --mode discovery --type sendtargets --portal $TARGET_IP_ADDR
+
+2) Login to target
+# iscsiadm --mode node --targetname iqn.2010-04.us.yyz.bd.itd:target0 \
+	--portal $TARGET_IP_ADDR --login
+
+3) Use SCSI block device that is created by kernel to your heart's content.
+
+4) Logout from target
+# iscsiadm --mode node --targetname iqn.2010-04.us.yyz.bd.itd:target0 \
+	--portal $TARGET_IP_ADDR --logout
 
 
