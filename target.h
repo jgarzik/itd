@@ -145,7 +145,7 @@ struct globals {
 	int		address_family;	/* global default IP address family */
 	int		max_sessions;	/* maximum number of sessions */
 	uint32_t	last_tsih;	/* the last TSIH that was used */
-	GList		*sockets;
+	struct list_head sockets;
 	char		host[128];
 };
 
@@ -154,6 +154,7 @@ struct server_socket {
 	struct event		ev;
 	struct sockaddr		addr;
 	socklen_t		addrlen;
+	struct list_head	sockets_node;
 	char			addr_str[128];
 };
 

@@ -847,6 +847,8 @@ static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
 		return -ENOMEM;
 	}
 
+	INIT_LIST_HEAD(&sock->sockets_node);
+
 	sock->fd = fd;
 
 	sock->addrlen = addr_len;
@@ -871,7 +873,8 @@ static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
 		return -EIO;
 	}
 
-	gbls.sockets = g_list_append(gbls.sockets, sock);
+	list_add_tail(&sock->sockets_node, &gbls.sockets);
+
 	return fd;
 }
 
@@ -1052,6 +1055,8 @@ int main(int argc, char *argv[])
 	error_t aprc;
 
 	event_init();
+
+	INIT_LIST_HEAD(&gbls.sockets);
 
 	/*
 	 * parse command line
