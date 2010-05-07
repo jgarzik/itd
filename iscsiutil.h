@@ -283,6 +283,7 @@ extern bool tcp_wr_cb_free(struct tcp_write_state *st, void *cb_data, bool done)
 extern void tcp_write_init(struct tcp_write_state *st, int fd);
 extern void tcp_write_exit(struct tcp_write_state *st);
 extern bool tcp_write_start(struct tcp_write_state *st);
+extern bool tcp_write_run_compl(struct tcp_write_state *st);
 
 extern void send_padding(struct tcp_write_state *st, unsigned int len_out);
 

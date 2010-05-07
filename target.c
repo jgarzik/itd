@@ -1920,6 +1920,8 @@ restart:
 		/* do nothing, invalid read state */
 		break;
 	}
+
+	tcp_write_run_compl(&sess->wst);
 	return;
 
 err_out:

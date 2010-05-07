@@ -974,6 +974,7 @@ static void tcp_wr_evt(int fd, short events, void *userdata)
 	struct tcp_write_state *st = userdata;
 
 	tcp_writable(st);
+	tcp_write_run_compl(st);
 }
 
 void tcp_write_init(struct tcp_write_state *st, int fd)
