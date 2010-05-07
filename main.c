@@ -20,6 +20,8 @@
 
 #include "itd-config.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <glib.h>
@@ -27,6 +29,9 @@
 #include <stdbool.h>
 #include <netinet/in.h>
 #include <argp.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #include <event.h>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -40,6 +45,12 @@ uint32_t iscsi_debug_level = 0;
 
 static bool server_running = true;
 static bool opt_strict_free = false;
+
+static char *file_map_fn;
+static int file_map_fd = -1;
+static void *file_map;
+static size_t file_map_size;
+
 void *data_mem = NULL;
 
 enum {
@@ -55,11 +66,15 @@ static struct globals gbls = {
 const char *argp_program_version = PACKAGE_VERSION;
 
 static struct argp_option options[] = {
-	{ "memsize", 'm', "VALUE", 0,
-	  "Choose size of RAM storage area, where VALUE is a number with "
-	  "a 'k', 'm', or 'g' suffix, eg. 100k, 100m, 100g.  Default: 100m" },
+	{ "file-map", 'f', "FILE", 0,
+	  "Memory map FILE for backing store, rather than temporary RAM "
+	  "buffer. Default: do not map any file, and exclusively use "
+	  "temporary RAM buffer." },
 	{ "port", 'p', "PORT", 0,
 	  "Bind to TCP port PORT. Default: 3290 (iSCSI IANA registered port)" },
+	{ "ram-size", 's', "VALUE", 0,
+	  "Choose size of RAM storage area, where VALUE is a number with "
+	  "a 'k', 'm', or 'g' suffix, eg. 100k, 100m, 100g.  Default: 100m" },
 	{ "strict-free", 1001, NULL, 0,
 	  "For memory-checker runs.  When shutting down server, free local "
 	  "heap, rather than simply exit(2)ing and letting OS clean up." },
@@ -987,27 +1002,10 @@ static int master_iscsi_init(void)
 	return target_init(&gbls, tvp, tgt);
 }
 
-static void master_iscsi_exit(void)
-{
-	target_shutdown(&gbls, opt_strict_free);
-
-	if (opt_strict_free)
-		free(data_mem);
-}
-
-static int mem_init(void)
+static void show_mem_info(const char *stype)
 {
 	const char *suffix;
 	unsigned long long pr_len, alloc_len = data_mem_lba * data_lba_size;
-
-	data_mem = calloc(1, alloc_len);
-	if (!data_mem) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "Out of memory allocating %llu bytes "
-				  "for RAM storage\n",
-				  alloc_len);
-		return -1;
-	}
 
 	if (alloc_len >= (1024 * 1024 * 1024)) {
 		suffix = "GB";
@@ -1020,10 +1018,95 @@ static int mem_init(void)
 		pr_len = alloc_len / 1024;
 	}
 
-	fprintf(stderr, "Initialized %llu%s of RAM storage\n",
-		pr_len, suffix);
+	fprintf(stderr, "Initialized %llu%s of %s storage\n",
+		pr_len, suffix, stype);
+}
+
+static int mem_init(void)
+{
+	unsigned long long alloc_len = data_mem_lba * data_lba_size;
+
+	data_mem = calloc(1, alloc_len);
+	if (!data_mem) {
+		iscsi_trace_error(__FILE__, __LINE__,
+				  "Out of memory allocating %llu bytes "
+				  "for RAM storage\n",
+				  alloc_len);
+		return -1;
+	}
+
+	show_mem_info("RAM");
 
 	return 0;
+}
+
+static void mem_exit(void)
+{
+	free(data_mem);
+}
+
+static int map_init(void)
+{
+	struct stat st;
+	unsigned long long alloc_len;
+
+	file_map_fd = open(file_map_fn, O_RDWR);
+	if (file_map_fd < 0) {
+		perror(file_map_fn);
+		goto err_out;
+	}
+
+	if (fstat(file_map_fd, &st) < 0) {
+		perror(file_map_fn);
+		goto err_out_fd;
+	}
+
+	data_mem_lba = st.st_size / data_lba_size;
+
+	if (data_mem_lba < 1) {
+		fprintf(stderr, "%s size too small, aborting\n", file_map_fn);
+		goto err_out_fd;
+	}
+
+	alloc_len = file_map_size = data_mem_lba * data_lba_size;
+	file_map = mmap(NULL, data_mem_lba * data_lba_size,
+			PROT_READ | PROT_WRITE, MAP_SHARED, file_map_fd, 0);
+	if (file_map == MAP_FAILED) {
+		perror("mmap");
+		goto err_out_fd;
+	}
+
+	data_mem = file_map;
+
+	show_mem_info("file-backed mmap");
+
+	return 0;
+
+err_out_fd:
+	close(file_map_fd);
+err_out:
+	return 1;
+}
+
+static void map_exit(void)
+{
+	munmap(file_map, file_map_size);
+	close(file_map_fd);
+}
+
+static void master_iscsi_exit(void)
+{
+	target_shutdown(&gbls, opt_strict_free);
+
+	if (file_map) {
+		msync(file_map, file_map_size, MS_ASYNC);
+
+		if (opt_strict_free)
+			map_exit();
+	} else {
+		if (opt_strict_free)
+			mem_exit();
+	}
 }
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
@@ -1033,7 +1116,16 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 	char *initial_str, *s, cv;
 
 	switch(key) {
-	case 'm':
+	case 'f':
+		if (access(arg, R_OK | W_OK) < 0) {
+			perror(arg);
+			argp_usage(state);
+		}
+
+		file_map_fn = arg;
+		break;
+
+	case 's':
 		if ((sscanf(arg, "%llu%c", &uv, &cv) == 2) && (uv > 0)) {
 			if (cv == 'k' || cv == 'K')
 				data_mem_lba = (uv * 1024) / data_lba_size;
@@ -1123,8 +1215,14 @@ int main(int argc, char *argv[])
 	signal(SIGINT, term_signal);
 	signal(SIGTERM, term_signal);
 
-	if (mem_init())
-		return 1;
+	if (file_map_fn) {
+		if (map_init())
+			return 1;
+	} else {
+		if (mem_init())
+			return 1;
+	}
+
 	if (net_init())
 		return 1;
 	if (master_iscsi_init())
