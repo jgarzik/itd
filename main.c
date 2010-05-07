@@ -189,13 +189,17 @@ static void scsi_16_lba_len(const uint8_t *cdb, uint64_t *plba, uint32_t *plen)
 	*plen = len;
 }
 
+enum {
+	sense_buf_sz	= 20,
+};
+
 static int sense_fill(bool desc, uint8_t *buf, uint8_t key,
 		      uint8_t asc, uint8_t ascq)
 {
 	uint16_t *buf16 = (uint16_t *) buf;
 
-	/* iSCSI sense length; hardcoded at 14 right now */
-	*buf16 = htons(14);
+	/* iSCSI sense length */
+	*buf16 = htons(sense_buf_sz);
 	buf += 2;
 
 	if (desc) {
@@ -212,7 +216,7 @@ static int sense_fill(bool desc, uint8_t *buf, uint8_t key,
 		buf[13] = ascq;
 	}
 
-	return 2 + 14;	/* number of bytes in buffer used */
+	return 2 + sense_buf_sz; /* number of bytes in buffer used */
 }
 
 static int sense_inval_field(bool desc, uint8_t *buf)
