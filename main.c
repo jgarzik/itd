@@ -568,6 +568,29 @@ err_out:
 	scsierr_inval(scsi_cmd, buf);
 }
 
+static void scsiop_sync_cache(struct target_session *sess,
+			     struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *buf)
+{
+	const uint8_t *cdb = scsi_cmd->cdb;
+	bool immed = cdb[1] & (1 << 1);		/* IMMED bit */
+
+	/* if RAM-only, nothing to do */
+	if (!file_map)
+		return;
+
+	if (msync(file_map, file_map_size, immed ? MS_ASYNC : MS_SYNC) == 0)
+		return;
+
+	iscsi_trace_error(__FILE__, __LINE__,
+			  "msync failed: %s\n",
+			  strerror(errno));
+
+	scsi_cmd->status = SCSI_CHECK_CONDITION;
+	scsi_cmd->length = sense_fill(false, buf,
+				      SKEY_MEDIUM_ERROR, 0xc, 0x2);
+				      /* write error - auto realloc failed */
+}
+
 int device_commit(struct target_session *sess, struct target_cmd *tc)
 {
 	int i;
@@ -705,6 +728,11 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 		}
 		break;
 
+	case SYNC_CACHE:
+	case SYNC_CACHE_16:
+		scsiop_sync_cache(sess, scsi_cmd, buf);
+		break;
+
 	case READ_6:
 		scsiop_data_xfer(sess, tc, scsi_cmd, buf, false, 6);
 		break;
@@ -731,8 +759,6 @@ int device_command(struct target_session *sess, struct target_cmd *tc)
 
 	case PREFETCH_10:
 	case PREFETCH_16:
-	case SYNC_CACHE:
-	case SYNC_CACHE_16:
 	case TEST_UNIT_READY:
 		/* do nothing - success */
 		break;
