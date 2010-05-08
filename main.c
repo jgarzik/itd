@@ -41,6 +41,10 @@
 #include "parameters.h"
 #include "scsi_cmd_codes.h"
 
+#define ISCSI_VENDOR	"Hail"
+#define ISCSI_PRODUCT	"ISCSI BLKDEV"
+#define ISCSI_FWREV	PACKAGE_VERSION
+
 uint32_t iscsi_debug_level = 0;
 
 static bool server_running = true;
@@ -284,9 +288,12 @@ static void scsiop_inquiry_std(struct iscsi_scsi_cmd_args *scsi_cmd, uint8_t *rb
 
 	memset(&rbuf[8], ' ', 8 + 16 + 4);
 
-	memcpy(&rbuf[8], ISCSI_VENDOR, strlen(ISCSI_VENDOR));	/* vendor */
-	memcpy(&rbuf[16], ISCSI_PRODUCT, strlen(ISCSI_PRODUCT));/* product */
-	memcpy(&rbuf[32], ISCSI_FWREV, strlen(ISCSI_FWREV));	/* fw rev */
+	memcpy(&rbuf[8], ISCSI_VENDOR,
+	       MIN(8, strlen(ISCSI_VENDOR)));		/* vendor */
+	memcpy(&rbuf[16], ISCSI_PRODUCT,
+	       MIN(16, strlen(ISCSI_PRODUCT)));		/* product */
+	memcpy(&rbuf[32], ISCSI_FWREV,
+	       MIN(4, strlen(ISCSI_FWREV)));		/* fw rev */
 
         memcpy(rbuf + 59, versions, sizeof(versions));
 

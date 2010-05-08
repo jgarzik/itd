@@ -51,9 +51,6 @@
  * iSCSI Version 18
  */
 
-#define ISCSI_VENDOR	"Hail"
-#define ISCSI_PRODUCT	PACKAGE_NAME
-#define ISCSI_FWREV	PACKAGE_VERSION
 #define ISCSI_VERSION	0
 
 /*
