@@ -104,9 +104,9 @@ static const uint8_t def_rw_recovery_mpage[RW_RECOVERY_MPAGE_LEN] = {
 static const uint8_t def_cache_mpage[CACHE_MPAGE_LEN] = {
 	CACHE_MPAGE,
 	CACHE_MPAGE_LEN - 2,
-	(1 << 0),	/* RCD=1 */
+	0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0,
-	(1 << 5),	/* DRA=1 */
+	0,
 	0, 0, 0, 0, 0, 0, 0
 };
 
@@ -341,6 +341,12 @@ static unsigned int msense_ctl_mode(uint8_t *buf)
 static unsigned int msense_cache(uint8_t *buf)
 {
 	memcpy(buf, def_cache_mpage, sizeof(def_cache_mpage));
+	if (file_map) {
+		buf[2] = (1 << 2);	/* WCE */
+	} else {
+		buf[2] = (1 << 0);	/* RCD */
+		buf[12] = (1 << 5);	/* DRA */
+	}
 	return sizeof(def_cache_mpage);
 }
 
