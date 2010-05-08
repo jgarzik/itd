@@ -1800,8 +1800,9 @@ static int net_readbuf(int fd, void *buf, unsigned int bufsz,
 	if (progress >= bufsz)
 		return 1;
 
+	errno = 0;
 	rc = read(fd, buf + progress, bufsz - progress);
-	if (rc < 0)
+	if (rc <= 0)
 		return -1;
 
 	*progress_io = progress + rc;
