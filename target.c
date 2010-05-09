@@ -463,19 +463,10 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 		uint8_t        *ahs_ptr;
 		uint8_t         ahs_type;
 
-		scsi_cmd->ahs = NULL;
-		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
-			    "reading %d bytes AHS\n", scsi_cmd->ahs_len);
-		if ((scsi_cmd->ahs = malloc((unsigned)scsi_cmd->ahs_len)) == NULL) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "malloc() failed\n");
-			return -1;
-		}
-
-		memcpy(scsi_cmd->ahs, sess->pdu.ahs, scsi_cmd->ahs_len);
-
+		scsi_cmd->ahs = sess->pdu.ahs;
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "read %d bytes AHS\n", scsi_cmd->ahs_len);
+
 		for (ahs_ptr = scsi_cmd->ahs;
 		     ahs_ptr < (scsi_cmd->ahs + scsi_cmd->ahs_len - 1);
 		     ahs_ptr += ahs_len) {
@@ -525,8 +516,8 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 
 	if (scsi_cmd->input) {
 		scsi_cmd->send_data = sess->pdu.data;
+		scsi_cmd->input = 0;
 	}
-	scsi_cmd->input = 0;
 
 	if (device_command(sess, &cmd) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -551,11 +542,9 @@ response:
 		goto err_out;
 
 out:
-	free(scsi_cmd->ahs);
 	return 0;
 
 err_out:
-	free(scsi_cmd->ahs);
 	return -1;
 }
 
