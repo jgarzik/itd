@@ -455,7 +455,6 @@ static int scsi_command_t(struct target_session *sess, const uint8_t * header,
 #endif
 
 	/* Read AHS.  Need to optimize/clean this.   */
-	/* We should not be calling malloc(). */
 	/* We need to check for properly formated AHS segments. */
 
 	if (scsi_cmd->ahs_len) {
