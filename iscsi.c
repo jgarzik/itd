@@ -603,6 +603,7 @@ int iscsi_logout_rsp_encap(uint8_t * header, struct iscsi_logout_rsp_args *rsp)
 int iscsi_scsi_cmd_decap(const uint8_t * header, struct iscsi_scsi_cmd_args *cmd)
 {
 	uint8_t tmp[4];
+	uint32_t *tmp32;
 
 	RETURN_NOT_EQUAL("Opcode", ISCSI_OPCODE(header), ISCSI_SCSI_CMD,
 			 NO_CLEANUP, 1);
@@ -615,7 +616,8 @@ int iscsi_scsi_cmd_decap(const uint8_t * header, struct iscsi_scsi_cmd_args *cmd
 	cmd->ahs_len = header[4];
 	memcpy(tmp, header + 4, 4);
 	tmp[0] = 0;
-	cmd->length = ntohl(*((uint32_t *)&tmp[0]));	/* DataSegmentLength */
+	tmp32 = (uint32_t *) &tmp[0];
+	cmd->length = ntohl(*tmp32);	/* DataSegmentLength */
 	cmd->lun = GUINT64_FROM_BE(*((uint64_t *) (void *)(header + 8)));	/* LUN */
 	cmd->tag = ntohl(*((uint32_t *) (void *)(header + 16)));	/* Task Tag */
 	cmd->trans_len = ntohl(*((uint32_t *) (void *)(header + 20)));	/* Expected Transfer
