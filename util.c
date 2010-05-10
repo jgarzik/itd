@@ -375,14 +375,13 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 
 void send_padding(struct tcp_write_state *st, unsigned int len_out)
 {
-	int i, pad_len;
+	int pad_len;
 	static const char pad_buf[4] = { 0, 0, 0, 0 };
 
-	i = len_out & 0x3;
-	if (!i)
+	pad_len = padding_bytes(len_out);
+	if (!pad_len)
 		return;
 
-	pad_len = 4 - i;
 	tcp_writeq(st, pad_buf, pad_len, NULL, NULL);
 }
 

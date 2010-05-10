@@ -1833,8 +1833,7 @@ restart:
 		pdu->data_len = ntohl(*((uint32_t *) (void *)(buf + 4)));
 
 		v = pdu->ahs_len + pdu->data_len;
-		if (v & 0x3)
-			pdu->pad_len = 4 - (v & 0x3);
+		pdu->pad_len = padding_bytes(v);
 
 		if (pdu->data_len > 0 || pdu->pad_len > 0) {
 			pdu->data = malloc(pdu->data_len + pdu->pad_len);

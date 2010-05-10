@@ -287,6 +287,17 @@ extern bool tcp_write_run_compl(struct tcp_write_state *st);
 
 extern void send_padding(struct tcp_write_state *st, unsigned int len_out);
 
+static inline int padding_bytes(unsigned int len_out)
+{
+	int i;
+
+	i = (len_out & 0x3);
+	if (!i)
+		return 0;
+
+	return (4 - i);
+}
+
 extern uint32_t crc32c(uint32_t crc, const uint8_t *data, unsigned int length);
 
 #endif /* _ISCSIUTIL_H_ */
