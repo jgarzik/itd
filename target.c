@@ -1485,12 +1485,22 @@ read_data_pdu(struct target_session *sess,
 	if (sess->sess_params.max_data_seg) {
 		if (data->length > sess->sess_params.max_data_seg) {
 			sess->xfer.status = SCSI_CHECK_CONDITION;
-			return -1;
+			iscsi_trace_error(__FILE__, __LINE__,
+				  "data PDU len %u too large "
+				  "(larger than session max_data_seg %d)\n",
+				  data->length,
+				  sess->sess_params.max_data_seg);
+			return -2;
 		}
 	}
 	if ((sess->xfer.bytes_recv + data->length) > sess->xfer.trans_len) {
 		sess->xfer.status = SCSI_CHECK_CONDITION;
-		return -1;
+		iscsi_trace_error(__FILE__, __LINE__,
+			"Data PDU bytes received so far (%u) + Data PDU len %u "
+			"is larger than expected xfer length %u\n",
+			sess->xfer.bytes_recv, data->length,
+			sess->xfer.trans_len);
+		return -3;
 	}
 	if (data->tag != sess->xfer.tag) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1498,7 +1508,7 @@ read_data_pdu(struct target_session *sess,
 			    data->tag, sess->xfer.tag);
 		if (data->final) {
 			sess->xfer.status = SCSI_CHECK_CONDITION;
-			return -1;
+			return -4;
 		} else {
 			/* Send a reject PDU */
 			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1511,6 +1521,7 @@ read_data_pdu(struct target_session *sess,
 			}
 		}
 	}
+
 	return 0;
 }
 
@@ -1521,7 +1532,9 @@ static int target_data_pdu(struct target_session *sess)
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "reading data pdu\n");
-	if ((read_status = read_data_pdu(sess, &data)) != 0) {
+
+	read_status = read_data_pdu(sess, &data);
+	if (read_status) {
 		if (read_status == 1) {
 			iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__,
 				    __LINE__,
@@ -1529,11 +1542,13 @@ static int target_data_pdu(struct target_session *sess)
 			return 1;
 		} else {
 			iscsi_trace_error(__FILE__, __LINE__,
-					  "read_data_pdu() failed\n");
+					  "read_data_pdu() failed, status %d\n",
+					  read_status);
 			sess->xfer.status = SCSI_CHECK_CONDITION;
 			return -1;
 		}
 	}
+
 	WARN_NOT_EQUAL("ExpStatSN", data.ExpStatSN, sess->StatSN);
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "read data pdu OK (offset %u, length %u)\n",
