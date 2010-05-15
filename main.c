@@ -861,6 +861,34 @@ done:
 	return rcb;
 }
 
+static void net_free_socket(struct server_socket *sock)
+{
+	if (!sock)
+		return;
+
+	list_del_init(&sock->sockets_node);
+
+	event_del(&sock->ev);
+
+	close(sock->fd);
+
+	free(sock);
+}
+
+static void net_exit(void)
+{
+	struct list_head *tmp, *iter;
+	struct server_socket *sock;
+
+	if (!opt_strict_free)
+		return;
+
+	list_for_each_safe(tmp, iter, &gbls.sockets) {
+		sock = list_entry(tmp, struct server_socket, sockets_node);
+		net_free_socket(sock);
+	}
+}
+
 static int net_open_socket(int addr_fam, int sock_type, int sock_prot,
 			   int addr_len, void *addr_ptr)
 {
@@ -1135,6 +1163,8 @@ static void map_exit(void)
 
 static void master_iscsi_exit(void)
 {
+	targv_t *tvp = &tv;
+
 	target_shutdown(&gbls, opt_strict_free);
 
 	if (file_map) {
@@ -1145,6 +1175,13 @@ static void master_iscsi_exit(void)
 	} else {
 		if (opt_strict_free)
 			mem_exit();
+	}
+
+	if (opt_strict_free) {
+		free(tvp->v[0].target);
+		free(tvp->v[0].iqn);
+		free(tvp->v[0].mask);
+		free(tvp->v);
 	}
 }
 
@@ -1267,10 +1304,19 @@ int main(int argc, char *argv[])
 	if (master_iscsi_init())
 		return 1;
 
+	/* the second opt_strict_free test is only redundant until
+	 * more options are added
+	 */
+	if (opt_strict_free) {
+		fprintf(stderr, "Server options: %s\n",
+			opt_strict_free ? "strict-free" : "");
+	}
+
 	while (server_running)
 		event_dispatch();
 
 	master_iscsi_exit();
+	net_exit();
 
 	return 0;
 }
