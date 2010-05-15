@@ -70,7 +70,8 @@ param_list_add(struct iscsi_parameter **head, int type, const char *key,
 	/* Allocated new parameter type */
 
 	if (*head == NULL) {
-		if ((*head = malloc(sizeof(struct iscsi_parameter))) == NULL) {
+		*head = calloc(1, sizeof(struct iscsi_parameter));
+		if (*head == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -79,8 +80,8 @@ param_list_add(struct iscsi_parameter **head, int type, const char *key,
 	} else {
 		for (param = *head; param->next != NULL; param = param->next) {
 		}
-		if ((param->next =
-		     malloc(sizeof(struct iscsi_parameter))) == NULL) {
+		param->next = calloc(1, sizeof(struct iscsi_parameter));
+		if (param->next == NULL) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "out of memory\n");
 			return -1;
@@ -94,22 +95,16 @@ param_list_add(struct iscsi_parameter **head, int type, const char *key,
 	strlcpy(param->key, key, sizeof(param->key));	/* key */
 	strlcpy(param->dflt, dflt, sizeof(param->dflt));	/* default value */
 	strlcpy(param->valid, valid, sizeof(param->valid));	/* list of valid values */
-	param->tx_offer = 0;	/* sent offer */
-	param->rx_offer = 0;	/* received offer */
-	param->tx_answer = 0;	/* sent answer */
-	param->rx_answer = 0;	/* received answer */
-	param->reset = 0;	/* used to erase value_l on next parse */
-	param->next = NULL;	/* terminate list */
 
 	/* Allocated space for value list and set first item to default; and */
 	/* set offer and answer lists to NULL */
 
-	if ((param->value_l =
-	     malloc(sizeof(struct iscsi_parameter_item))) == NULL) {
-		iscsi_trace_error(__FILE__, __LINE__, "malloc() failed\n");
+	param->value_l = calloc(1, sizeof(struct iscsi_parameter_item));
+	if (param->value_l == NULL) {
+		iscsi_trace_error(__FILE__, __LINE__, "out of memory\n");
 		return -1;
 	}
-	param->value_l->next = NULL;
+
 	strlcpy(param->value_l->value, dflt, sizeof(param->value_l->value));
 
 	/* Arg check */
