@@ -1732,7 +1732,7 @@ int target_sess_cleanup(struct target_session *sess)
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "session %d: ended\n", sess->id);
 
-	list_del(&sess->sessions_node);
+	list_del_init(&sess->sessions_node);
 
 	/* Destroy session */
 	free(sess);

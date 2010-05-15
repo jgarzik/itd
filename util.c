@@ -810,7 +810,7 @@ static bool tcp_write_free(struct tcp_write_state *st, struct tcp_write *tmp,
 	bool rcb = false;
 
 	st->write_cnt -= tmp->length;
-	list_del(&tmp->node);
+	list_del_init(&tmp->node);
 	if (tmp->cb)
 		rcb = tmp->cb(st, tmp->cb_data, done);
 	free(tmp);
