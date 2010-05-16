@@ -289,91 +289,6 @@ void iscsi_print_buffer(uint8_t * buf, const size_t len)
 	}
 }
 
-/*
- * Socket Functions
- */
-
-int
-modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
-{
-	int             len;
-	int             disp = offset;
-	int             i;
-	struct iovec   *iov = *iov_ptr;
-	char           *basep;
-
-	/* Given <offset>, find beginning iovec and modify its base and length */
-	len = 0;
-	for (i = 0; i < *iovc; i++) {
-		len += iov[i].iov_len;
-		if (len > offset) {
-			iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__,
-				    "found offset %u in iov[%d]\n", offset, i);
-			break;
-		}
-		disp -= iov[i].iov_len;
-	}
-	if (i == *iovc) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "sum of iov lens (%u) < offset (%u)\n", len,
-				  offset);
-		return -1;
-	}
-	iov[i].iov_len -= disp;
-	basep = iov[i].iov_base;
-	basep += disp;
-	iov[i].iov_base = basep;
-	*iovc -= i;
-	*iov_ptr = &(iov[i]);
-	iov = *iov_ptr;
-
-	/*
-	 * Given <length>, find ending iovec and modify its length (base does
-	 * not change)
-	 */
-
-	len = 0;		/* we should re-use len and i here... */
-	for (i = 0; i < *iovc; i++) {
-		len += iov[i].iov_len;
-		if (len >= length) {
-			iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__,
-				    "length %u ends in iovec[%d]\n", length, i);
-			break;
-		}
-	}
-	if (i == *iovc) {
-		iscsi_trace_error(__FILE__, __LINE__,
-				  "sum of iovec lens (%u) < length (%u)\n", len,
-				  length);
-		for (i = 0; i < *iovc; i++) {
-			iscsi_trace_error(__FILE__, __LINE__,
-					  "iov[%d].iov_base = %p (len %u)\n", i,
-					  iov[i].iov_base,
-					  (unsigned)iov[i].iov_len);
-		}
-		return -1;
-	}
-	iov[i].iov_len -= (len - length);
-	*iovc = i + 1;
-
-	iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__, "new iov:\n");
-	len = 0;
-	for (i = 0; i < *iovc; i++) {
-		iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__,
-			    "iov[%d].iov_base = %p (len %u)\n", i,
-			    iov[i].iov_base, (unsigned)iov[i].iov_len);
-		len += iov[i].iov_len;
-	}
-	iscsi_trace(TRACE_NET_IOV, __FILE__, __LINE__,
-		    "new iov length: %u bytes\n", len);
-
-	return 0;
-}
-
-#ifndef MAXSOCK
-#define MAXSOCK	16
-#endif
-
 static GTrashStack *free_headers;
 
 void *header_get(void)
@@ -435,51 +350,22 @@ void send_padding(struct tcp_write_state *st, unsigned int len_out)
 
 int iscsi_writev(struct tcp_write_state *st,
 		 void *header, unsigned header_len,
-		 const void *data, unsigned data_len, int iovc)
+		 const void *data, unsigned data_len)
 {
-	void *mem;
-
 	iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
-		    "NET: writing %u header bytes\n", header_len);
+		    "NET: writing %u header bytes, %u data bytes\n",
+		    header_len, data_len);
 
 	tcp_writeq(st, header, header_len, hdr_cb_free, header);
 
-	if (!iovc) {
-		iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
-			    "NET: writing %u data bytes\n", data_len);
-		if (data_len > 0) {
-			mem = g_memdup(data, data_len);
-			if (!mem)
-				return -1;
-			tcp_writeq(st, mem, data_len,
-				   tcp_wr_cb_free, mem);
-		}
+	if (data && data_len > 0) {
+		void *mem;
 
-	} else {
-		struct iovec    iov[ISCSI_MAX_IOVECS];
-		int             i;
-
-		memcpy(&iov[0], data, sizeof(struct iovec) * iovc);
-
-		data_len = 0;
-
-		for (i = 0; i < iovc; i++) {
-			iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
-				    "NET: %swriting %u bytes (iov %d)\n",
-				    iov[i].iov_len > 0 ? "" : "not ",
-				    iov[i].iov_len, i);
-
-			if (iov[i].iov_len <= 0)
-				continue;
-
-			mem = g_memdup(iov[i].iov_base, iov[i].iov_len);
-			if (!mem)
-				return -1;
-			tcp_writeq(st, mem, iov[i].iov_len,
-				   tcp_wr_cb_free, mem);
-
-			data_len += iov[i].iov_len;
-		}
+		mem = g_memdup(data, data_len);
+		if (!mem)
+			return -1;
+		tcp_writeq(st, mem, data_len,
+			   tcp_wr_cb_free, mem);
 	}
 
 	send_padding(st, data_len);

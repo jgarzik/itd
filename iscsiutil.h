@@ -144,8 +144,7 @@ extern const char *sopstr(uint8_t op);
 extern int fsetflags(const char *prefix, int fd, int or_flags);
 extern int iscsi_writev(struct tcp_write_state *st,
 			void *header, unsigned header_len,
-			const void *data, unsigned data_len, int iovc);
-extern int      modify_iov(struct iovec **, int *, uint32_t, uint32_t);
+			const void *data, unsigned data_len);
 
 extern void     cdb2lba(uint32_t *, uint16_t *, uint8_t *);
 extern void     lba2cdb(uint8_t *, uint32_t *, uint16_t *);

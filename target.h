@@ -131,8 +131,6 @@ enum {
 	ISCSI_IPv4		= AF_INET,
 	ISCSI_IPv6		= AF_INET6,
 	ISCSI_UNSPEC		= PF_UNSPEC,
-
-	MAXSOCK			= 8
 };
 
 /* global variables, moved from target.c */

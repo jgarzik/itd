@@ -170,7 +170,7 @@ static int reject_t(struct target_session *sess, const uint8_t * header,
 	}
 
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN, header,
-			 ISCSI_HEADER_LEN, 0) != (2 * ISCSI_HEADER_LEN)) {
+			 ISCSI_HEADER_LEN) != (2 * ISCSI_HEADER_LEN)) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
 		goto err_out_hdr;
@@ -191,17 +191,9 @@ static int send_read_data(struct target_session *sess,
 {
 	struct iscsi_read_data data;
 	uint8_t		*rsp_header;
-	struct iovec    sg_singleton;
-	struct iovec   *sg, *sg_orig, *sg_new = NULL;
-	int             sg_len_orig, sg_len;
 	uint32_t        offset, trans_len;
 	int             fragment_flag = 0;
 	int             offset_inc;
-#define SG_CLEANUP do {							\
-	if (fragment_flag) {						\
-		free(sg_new);				\
-	}								\
-} while (/* CONSTCOND */ 0)
 
 	if (scsi_cmd->output) {
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -211,17 +203,10 @@ static int send_read_data(struct target_session *sess,
 	} else {
 		trans_len = scsi_cmd->trans_len;
 	}
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sending %d bytes input data as separate PDUs\n",
 		    trans_len);
-
-	sg_len_orig = 1;
-	sg_singleton.iov_base = scsi_cmd->send_data;
-	sg_singleton.iov_len = trans_len;
-	sg_orig = &sg_singleton;
-
-	sg = sg_orig;
-	sg_len = sg_len_orig;
 
 	offset_inc =
 	    (sess->sess_params.max_data_seg) ? sess->sess_params.
@@ -234,25 +219,10 @@ static int send_read_data(struct target_session *sess,
 			MIN(trans_len - offset, sess->sess_params.max_data_seg):
 			trans_len - offset;
 		if (data.length != trans_len) {
-			if (!fragment_flag) {
-				if ((sg_new = malloc(sizeof(struct iovec)
-					    * sg_len_orig)) == NULL) {
-					iscsi_trace_error(__FILE__, __LINE__,
-							  "malloc() failed\n");
-					return -1;
-				}
+			if (!fragment_flag)
 				fragment_flag++;
-			}
-			sg = sg_new;
-			sg_len = sg_len_orig;
-			memcpy(sg, sg_orig, sizeof(struct iovec) * sg_len_orig);
-			if (modify_iov (&sg, &sg_len, offset, data.length) != 0) {
-				iscsi_trace_error(__FILE__, __LINE__,
-						  "modify_iov() failed\n");
-				SG_CLEANUP;
-				return -1;
-			}
 		}
+
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending read data PDU (offset %u, len %u)\n",
 			    offset, data.length);
@@ -275,7 +245,6 @@ static int send_read_data(struct target_session *sess,
 		} else if (offset + data.length > trans_len) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "offset+data.length > trans_len??\n");
-			SG_CLEANUP;
 			return -1;
 		}
 		data.task_tag = scsi_cmd->tag;
@@ -295,7 +264,7 @@ static int send_read_data(struct target_session *sess,
 		}
 
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-				 sg, data.length, sg_len)
+				 scsi_cmd->send_data + offset, data.length)
 				    != ISCSI_HEADER_LEN + data.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
@@ -307,7 +276,7 @@ static int send_read_data(struct target_session *sess,
 			    "sent read data PDU ok (offset %u, len %u)\n",
 			    data.offset, data.length);
 	}
-	SG_CLEANUP;
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "successfully sent %d bytes read data\n",
 		    trans_len);
@@ -317,7 +286,6 @@ static int send_read_data(struct target_session *sess,
 err_out_hdr:
 	header_put(rsp_header);
 err_out:
-	SG_CLEANUP;
 	return -1;
 }
 
@@ -373,7 +341,7 @@ static int send_rsp_pdu(struct target_session *sess,
 	}
 
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-			 scsi_cmd->send_data, scsi_rsp.length, 0)
+			 scsi_cmd->send_data, scsi_rsp.length)
 			        != ISCSI_HEADER_LEN + scsi_rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
@@ -708,7 +676,7 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 		}
 
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-				 sess->pdu.data, nop_in.length, 0) !=
+				 sess->pdu.data, nop_in.length) !=
 					    ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
@@ -1174,7 +1142,7 @@ response:
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sending login response\n");
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-			 text_out, rsp.length, 0) !=
+			 text_out, rsp.length) !=
 					    ISCSI_HEADER_LEN + rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
@@ -1338,7 +1306,7 @@ static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending login response\n");
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-				 NULL, 0, 0) !=
+				 NULL, 0) !=
 					    ISCSI_HEADER_LEN + rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
