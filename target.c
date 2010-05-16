@@ -149,7 +149,7 @@ static int reject_t(struct target_session *sess, const uint8_t * header,
 		    uint8_t reason)
 {
 	struct iscsi_reject reject;
-	uint8_t         rsp_header[ISCSI_HEADER_LEN];
+	uint8_t *rsp_header;
 
 	iscsi_trace_error(__FILE__, __LINE__, "reject %x\n", reason);
 	reject.reason = reason;
@@ -159,18 +159,29 @@ static int reject_t(struct target_session *sess, const uint8_t * header,
 	reject.MaxCmdSN = sess->MaxCmdSN;
 	reject.DataSN = 0;	/* SNACK not yet implemented */
 
+	rsp_header = header_get();
+	if (!rsp_header)
+		goto err_out;
+
 	if (iscsi_reject_encap(rsp_header, &reject) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_reject_encap() failed\n");
-		return -1;
+		goto err_out_hdr;
 	}
+
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN, header,
 			 ISCSI_HEADER_LEN, 0) != (2 * ISCSI_HEADER_LEN)) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
-		return -1;
+		goto err_out_hdr;
 	}
+
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	return -1;
 }
 
 /* send READ data from target (us) to initiator */
@@ -179,7 +190,7 @@ static int send_read_data(struct target_session *sess,
 			  uint32_t *DataSN)
 {
 	struct iscsi_read_data data;
-	uint8_t         rsp_header[ISCSI_HEADER_LEN];
+	uint8_t		*rsp_header;
 	struct iovec    sg_singleton;
 	struct iovec   *sg, *sg_orig, *sg_new = NULL;
 	int             sg_len_orig, sg_len;
@@ -276,21 +287,25 @@ static int send_read_data(struct target_session *sess,
 		data.MaxCmdSN = sess->MaxCmdSN;
 		data.DataSN = (*DataSN)++;
 		data.offset = offset;
+
+		rsp_header = header_get();
+		if (!rsp_header)
+			goto err_out;
+
 		if (iscsi_read_data_encap(rsp_header, &data) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_read_data_encap() failed\n");
-			SG_CLEANUP;
-			return -1;
+			goto err_out_hdr;
 		}
-		if (iscsi_writev(&sess->wst,
-				 rsp_header, ISCSI_HEADER_LEN,
+
+		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 				 sg, data.length, sg_len)
 				    != ISCSI_HEADER_LEN + data.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
-			SG_CLEANUP;
-			return -1;
+			goto err_out_hdr;
 		}
+
 		scsi_cmd->bytes_sent += data.length;
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sent read data PDU ok (offset %u, len %u)\n",
@@ -302,13 +317,19 @@ static int send_read_data(struct target_session *sess,
 		    trans_len);
 
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	SG_CLEANUP;
+	return -1;
 }
 
 static int send_rsp_pdu(struct target_session *sess,
 			struct iscsi_scsi_cmd_args *scsi_cmd,
 			uint32_t *DataSN)
 {
-	uint8_t rsp_header[ISCSI_HEADER_LEN];
+	uint8_t *rsp_header;
 	struct iscsi_scsi_rsp scsi_rsp;
 	bool send_it = false;
 
@@ -344,19 +365,26 @@ static int send_rsp_pdu(struct target_session *sess,
 			      && scsi_cmd->input) ? (*DataSN) : 0;
 	scsi_rsp.response = 0x00;	/* iSCSI response */
 	scsi_rsp.status = scsi_cmd->status;	/* SCSI status */
+
+	rsp_header = header_get();
+	if (!rsp_header)
+		goto err_out;
+
 	if (iscsi_scsi_rsp_encap(rsp_header, &scsi_rsp) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_scsi_rsp_encap() failed\n");
-		return -1;
+		goto err_out_hdr;
 	}
+
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 			 scsi_cmd->send_data, scsi_rsp.length,
 			 scsi_cmd->send_sg_len)
 			        != ISCSI_HEADER_LEN + scsi_rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
-		return -1;
+		goto err_out_hdr;
 	}
+
 	/* Make sure all data was transferred */
 
 	if (scsi_cmd->output) {
@@ -381,6 +409,11 @@ static int send_rsp_pdu(struct target_session *sess,
 	}
 
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	return -1;
 }
 
 static int scsi_command_t(struct target_session *sess, const uint8_t * header,
@@ -607,26 +640,32 @@ static int task_command_t(struct target_session *sess, const uint8_t *header)
 	rsp.ExpCmdSN = sess->ExpCmdSN;
 	rsp.MaxCmdSN = sess->MaxCmdSN;
 
-	rsp_header = malloc(ISCSI_HEADER_LEN);
+	rsp_header = header_get();
 	if (!rsp_header)
-		return -1;
+		goto err_out;
 
 	if (iscsi_task_rsp_encap(rsp_header, &rsp) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_task_cmd_decap() failed\n");
-		return -1;
+		goto err_out_hdr;
 	}
 
 	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-		   tcp_wr_cb_free, rsp_header);
+		   hdr_cb_free, rsp_header);
 	tcp_write_start(&sess->wst);
 
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	return -1;
 }
 
 static int nop_out_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_nop_out_args nop_out;
+	uint8_t *rsp_header;
 
 	if (iscsi_nop_out_decap(header, &nop_out) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
@@ -651,7 +690,6 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 	}
 	if (nop_out.tag != 0xffffffff) {
 		struct iscsi_nop_in_args nop_in;
-		uint8_t         rsp_header[ISCSI_HEADER_LEN];
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending %d bytes ping response\n", nop_out.length);
@@ -664,23 +702,34 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 		nop_in.ExpCmdSN = sess->ExpCmdSN;
 		nop_in.MaxCmdSN = sess->MaxCmdSN;
 
+		rsp_header = header_get();
+		if (!rsp_header)
+			goto err_out;
+
 		if (iscsi_nop_in_encap(rsp_header, &nop_in) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_nop_in_encap() failed\n");
-			return -1;
+			goto err_out_hdr;
 		}
+
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 				 sess->pdu.data, nop_in.length, 0) !=
 					    ISCSI_HEADER_LEN + nop_in.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
-			return -1;
+			goto err_out_hdr;
 		}
+
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "successfully sent %d bytes ping response\n",
 			    nop_out.length);
 	}
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	return -1;
 }
 
 /*
@@ -817,18 +866,18 @@ static int text_command_t(struct target_session *sess, const uint8_t *header)
 	text_rsp.ExpCmdSN = sess->ExpCmdSN;
 	text_rsp.MaxCmdSN = sess->MaxCmdSN;
 
-	rsp_header = malloc(ISCSI_HEADER_LEN);
+	rsp_header = header_get();
 	if (!rsp_header)
 		goto err_out;
 
 	if (iscsi_text_rsp_encap(rsp_header, &text_rsp) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_text_rsp_encap() failed\n");
-		goto err_out;
+		goto err_out_hdr;
 	}
 
 	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-		   tcp_wr_cb_free, rsp_header);
+		   hdr_cb_free, rsp_header);
 
 	if (len_out) {
 		tcp_writeq(&sess->wst, text_out, len_out,
@@ -844,6 +893,8 @@ static int text_command_t(struct target_session *sess, const uint8_t *header)
 	free(text_out);
 	return 0;
 
+err_out_hdr:
+	header_put(rsp_header);
 err_out:
 	free(text_in);
 	free(text_out);
@@ -886,7 +937,7 @@ static int login_command_t(struct target_session *sess, const uint8_t *header)
 {
 	struct iscsi_login_cmd_args cmd;
 	struct iscsi_login_rsp_args rsp;
-	uint8_t         rsp_header[ISCSI_HEADER_LEN];
+	uint8_t		*rsp_header;
 	char           *text_in = NULL;
 	char           *text_out = NULL;
 	char            logbuf[BUFSIZ];
@@ -1114,12 +1165,17 @@ response:
 			rsp.tsih = sess->tsih;
 		}
 	}
+
+	rsp_header = header_get();
+	if (!rsp_header)
+		goto err_out;
+
 	if (iscsi_login_rsp_encap(rsp_header, &rsp) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_login_rsp_encap() failed\n");
-		LC_CLEANUP;
-		return -1;
+		goto err_out_hdr;
 	}
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sending login response\n");
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
@@ -1127,15 +1183,14 @@ response:
 					    ISCSI_HEADER_LEN + rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");
-		LC_CLEANUP;
-		return -1;
+		goto err_out_hdr;
 	}
+
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sent login response ok\n");
-	if (rsp.status_class != 0) {
-		LC_CLEANUP;
-		return -1;
-	}
+	if (rsp.status_class != 0)
+		goto err_out;
+
 	if (cmd.transit && cmd.nsg == ISCSI_LOGIN_STAGE_FULL_FEATURE) {
 
 		/* log information to stdout */
@@ -1163,6 +1218,12 @@ response:
 	}
 	LC_CLEANUP;
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	LC_CLEANUP;
+	return -1;
 }
 
 static int logout_command_t(struct target_session *sess, const uint8_t *header)
@@ -1193,18 +1254,19 @@ static int logout_command_t(struct target_session *sess, const uint8_t *header)
 	rsp.ExpCmdSN = ++sess->ExpCmdSN;
 	rsp.MaxCmdSN = sess->MaxCmdSN;
 
-	rsp_header = malloc(ISCSI_HEADER_LEN);
+	rsp_header = header_get();
 	if (!rsp_header)
 		return -1;
 
 	if (iscsi_logout_rsp_encap(rsp_header, &rsp) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_logout_rsp_encap() failed\n");
+		header_put(rsp_header);
 		return -1;
 	}
 
 	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-		   tcp_wr_cb_free, rsp_header);
+		   hdr_cb_free, rsp_header);
 	tcp_write_start(&sess->wst);
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
@@ -1244,7 +1306,8 @@ static int logout_command_t(struct target_session *sess, const uint8_t *header)
 
 static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 {
-	int             op = ISCSI_OPCODE(header);
+	uint8_t *rsp_header;
+	int op = ISCSI_OPCODE(header);
 
 	if ((!sess->LoginStarted) && (op != ISCSI_LOGIN_CMD)) {
 		/* Terminate the connection */
@@ -1256,7 +1319,7 @@ static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 	if (!sess->IsFullFeature
 	    && ((op != ISCSI_LOGIN_CMD) && (op != ISCSI_LOGOUT_CMD))) {
 		struct iscsi_login_rsp_args rsp;
-		uint8_t         rsp_header[ISCSI_HEADER_LEN];
+
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "session %d: iSCSI op %#x attempted before FULL FEATURE\n",
 				  sess->id, op);
@@ -1267,11 +1330,16 @@ static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 		rsp.version_max = ISCSI_VERSION;
 		rsp.version_active = ISCSI_VERSION;
 
+		rsp_header = header_get();
+		if (!rsp_header)
+			goto err_out;
+
 		if (iscsi_login_rsp_encap(rsp_header, &rsp) != 0) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_login_rsp_encap() failed\n");
-			return -1;
+			goto err_out_hdr;
 		}
+
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending login response\n");
 		if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
@@ -1279,13 +1347,19 @@ static int verify_cmd_t(struct target_session *sess, const uint8_t *header)
 					    ISCSI_HEADER_LEN + rsp.length) {
 			iscsi_trace_error(__FILE__, __LINE__,
 					  "iscsi_writev() failed\n");
-			return -1;
+			goto err_out_hdr;
 		}
+
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sent login response ok\n");
 		return -1;
 	}
 	return 0;
+
+err_out_hdr:
+	header_put(rsp_header);
+err_out:
+	return -1;
 }
 
 /*
@@ -1440,13 +1514,14 @@ static int send_r2t(struct target_session *sess)
 	sess->xfer.r2t.length = sess->xfer.desired_len;
 	sess->xfer.r2t.offset = sess->xfer.bytes_recv;
 
-	header = malloc(ISCSI_HEADER_LEN);
+	header = header_get();
 	if (!header)
 		return -1;
 
 	if (iscsi_r2t_encap(header, &sess->xfer.r2t) != 0) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "r2t_encap() failed\n");
+		header_put(header);
 		return -1;
 	}
 
@@ -1457,7 +1532,7 @@ static int send_r2t(struct target_session *sess)
 		    sess->xfer.r2t.length, sess->xfer.r2t.offset);
 
 	tcp_writeq(&sess->wst, header, ISCSI_HEADER_LEN,
-		   tcp_wr_cb_free, header);
+		   hdr_cb_free, header);
 	tcp_write_start(&sess->wst);
 
 	sess->xfer.r2t_flag = 1;
@@ -1767,6 +1842,9 @@ int target_shutdown(struct globals *gp, bool strict_free)
 		if (strict_free)
 			target_sess_cleanup(sess);
 	}
+
+	if (strict_free)
+		hdrs_free_all();
 
 	/* listen socket is shutdown at layer above us */
 

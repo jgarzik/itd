@@ -142,10 +142,9 @@ struct tcp_write_state;
 
 extern const char *sopstr(uint8_t op);
 extern int fsetflags(const char *prefix, int fd, int or_flags);
-extern int
-iscsi_writev(struct tcp_write_state *st,
-				const void *header, unsigned header_len,
-				const void *data, unsigned data_len, int iovc);
+extern int iscsi_writev(struct tcp_write_state *st,
+			void *header, unsigned header_len,
+			const void *data, unsigned data_len, int iovc);
 extern int      modify_iov(struct iovec **, int *, uint32_t, uint32_t);
 
 extern void     cdb2lba(uint32_t *, uint16_t *, uint8_t *);
@@ -286,6 +285,11 @@ extern bool tcp_write_start(struct tcp_write_state *st);
 extern bool tcp_write_run_compl(struct tcp_write_state *st);
 
 extern void send_padding(struct tcp_write_state *st, unsigned int len_out);
+
+extern void *header_get(void);
+extern void header_put(void *mem);
+extern bool hdr_cb_free(struct tcp_write_state *st, void *cb_data, bool done);
+extern void hdrs_free_all(void);
 
 static inline int padding_bytes(unsigned int len_out)
 {

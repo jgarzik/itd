@@ -99,6 +99,7 @@
 #include <unistd.h>
 #include <glib.h>
 
+#include "iscsi.h"
 #include "iscsiutil.h"
 
 #ifndef __UNCONST
@@ -373,6 +374,43 @@ modify_iov(struct iovec **iov_ptr, int *iovc, uint32_t offset, uint32_t length)
 #define MAXSOCK	16
 #endif
 
+static GTrashStack *free_headers;
+
+void *header_get(void)
+{
+	void *mem;
+
+	mem = g_trash_stack_pop(&free_headers);
+	if (mem)
+		return mem;
+
+	return malloc(ISCSI_HEADER_LEN);
+}
+
+void header_put(void *mem)
+{
+	g_trash_stack_push(&free_headers, mem);
+}
+
+bool hdr_cb_free(struct tcp_write_state *st, void *cb_data, bool done)
+{
+	header_put(cb_data);
+	return false;
+}
+
+void hdrs_free_all(void)
+{
+	while (1) {
+		void *mem;
+
+		mem = g_trash_stack_pop(&free_headers);
+		if (!mem)
+			break;
+
+		free(mem);
+	}
+}
+
 void send_padding(struct tcp_write_state *st, unsigned int len_out)
 {
 	int pad_len;
@@ -396,7 +434,7 @@ void send_padding(struct tcp_write_state *st, unsigned int len_out)
  */
 
 int iscsi_writev(struct tcp_write_state *st,
-		 const void *header, unsigned header_len,
+		 void *header, unsigned header_len,
 		 const void *data, unsigned data_len, int iovc)
 {
 	void *mem;
@@ -404,11 +442,7 @@ int iscsi_writev(struct tcp_write_state *st,
 	iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
 		    "NET: writing %u header bytes\n", header_len);
 
-	mem = g_memdup(header, header_len);
-	if (!mem)
-		return -1;
-
-	tcp_writeq(st, mem, header_len, tcp_wr_cb_free, mem);
+	tcp_writeq(st, header, header_len, hdr_cb_free, header);
 
 	if (!iovc) {
 		iscsi_trace(TRACE_NET_BUFF, __FILE__, __LINE__,
