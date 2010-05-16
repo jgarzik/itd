@@ -215,15 +215,11 @@ static int send_read_data(struct target_session *sess,
 		    "sending %d bytes input data as separate PDUs\n",
 		    trans_len);
 
-	if (scsi_cmd->send_sg_len) {
-		sg_orig = (struct iovec *)(void *)scsi_cmd->send_data;
-		sg_len_orig = scsi_cmd->send_sg_len;
-	} else {
-		sg_len_orig = 1;
-		sg_singleton.iov_base = scsi_cmd->send_data;
-		sg_singleton.iov_len = trans_len;
-		sg_orig = &sg_singleton;
-	}
+	sg_len_orig = 1;
+	sg_singleton.iov_base = scsi_cmd->send_data;
+	sg_singleton.iov_len = trans_len;
+	sg_orig = &sg_singleton;
+
 	sg = sg_orig;
 	sg_len = sg_len_orig;
 
@@ -377,8 +373,7 @@ static int send_rsp_pdu(struct target_session *sess,
 	}
 
 	if (iscsi_writev(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
-			 scsi_cmd->send_data, scsi_rsp.length,
-			 scsi_cmd->send_sg_len)
+			 scsi_cmd->send_data, scsi_rsp.length, 0)
 			        != ISCSI_HEADER_LEN + scsi_rsp.length) {
 		iscsi_trace_error(__FILE__, __LINE__,
 				  "iscsi_writev() failed\n");

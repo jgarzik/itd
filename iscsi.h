@@ -372,9 +372,7 @@ struct iscsi_scsi_cmd_args {
 	uint8_t        *ahs;
 	uint8_t         ahs_len;
 	uint8_t        *send_data;
-	int32_t         send_sg_len;
 	uint8_t        *recv_data;
-	int32_t         recv_sg_len;
 	uint8_t         status;
 	uint32_t        bytes_sent;
 	uint32_t        bytes_recv;
