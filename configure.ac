@@ -71,6 +71,7 @@ dnl autoconf output generation
 dnl --------------------------
 
 AM_PATH_GLIB_2_0(2.0.0)
+PKG_CHECK_MODULES(HAIL, libhail)
 
 AC_SUBST(CRYPTO_LIBS)
 AC_SUBST(EVENT_LIBS)

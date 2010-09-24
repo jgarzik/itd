@@ -82,8 +82,8 @@
 #endif
 
 #include <string.h>
-#include <event.h>
 #include "elist.h"
+#include <anet.h>
 
 /*
  * Debugging Levels
@@ -138,11 +138,11 @@ extern void     iscsi_print_buffer(uint8_t *, const size_t);
  */
 
 struct target_session;
-struct tcp_write_state;
+struct atcp_wr_state;
 
 extern const char *sopstr(uint8_t op);
 extern int fsetflags(const char *prefix, int fd, int or_flags);
-extern int iscsi_writev(struct tcp_write_state *st,
+extern int iscsi_writev(struct atcp_wr_state *wst,
 			void *header, unsigned header_len,
 			const void *data, unsigned data_len);
 
@@ -241,53 +241,11 @@ typedef struct name {							\
 extern size_t   strlcpy(char *, const char *, size_t);
 #endif
 
-enum {
-	TCP_MAX_WR_IOV		= 512,	/* arbitrary, pick better one */
-	TCP_MAX_WR_CNT		= 10000,/* arbitrary, pick better one */
-};
-
-struct tcp_write_state {
-	int 			fd;
-	struct list_head	write_q;
-	struct list_head	write_compl_q;
-	size_t			write_cnt;	/* water level */
-	size_t			write_cnt_max;
-	bool			writing;
-	struct event		write_ev;
-
-	void			*priv;		/* useable by any app */
-
-	/* stats */
-	unsigned long		opt_write;
-};
-
-struct tcp_write {
-	const void		*buf;		/* write buffer pointer */
-	int			togo;		/* write buffer remainder */
-
-	int			length;		/* length for accounting */
-
-						/* callback */
-	bool			(*cb)(struct tcp_write_state *, void *, bool);
-	void			*cb_data;	/* data passed to cb */
-
-	struct list_head	node;
-};
-
-extern int tcp_writeq(struct tcp_write_state *st, const void *buf, unsigned int buflen,
-	       bool (*cb)(struct tcp_write_state *, void *, bool),
-	       void *cb_data);
-extern bool tcp_wr_cb_free(struct tcp_write_state *st, void *cb_data, bool done);
-extern void tcp_write_init(struct tcp_write_state *st, int fd);
-extern void tcp_write_exit(struct tcp_write_state *st);
-extern bool tcp_write_start(struct tcp_write_state *st);
-extern bool tcp_write_run_compl(struct tcp_write_state *st);
-
-extern void send_padding(struct tcp_write_state *st, unsigned int len_out);
+extern void send_padding(struct atcp_wr_state *wst, unsigned int len_out);
 
 extern void *header_get(void);
 extern void header_put(void *mem);
-extern bool hdr_cb_free(struct tcp_write_state *st, void *cb_data, bool done);
+extern bool hdr_cb_free(struct atcp_wr_state *, void *, bool);
 extern void hdrs_free_all(void);
 
 static inline int padding_bytes(unsigned int len_out)

@@ -219,8 +219,9 @@ struct target_session {
 	int			fd;
 	struct sockaddr		addr;
 	struct event		ev;
+	struct event		write_ev;
 
-	struct tcp_write_state	wst;
+	struct atcp_wr_state	wst;
 
 	struct session_xfer	xfer;
 

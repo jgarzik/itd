@@ -613,9 +613,9 @@ static int task_command_t(struct target_session *sess, const uint8_t *header)
 		goto err_out_hdr;
 	}
 
-	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
+	atcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 		   hdr_cb_free, rsp_header);
-	tcp_write_start(&sess->wst);
+	atcp_write_start(&sess->wst);
 
 	return 0;
 
@@ -839,18 +839,18 @@ static int text_command_t(struct target_session *sess, const uint8_t *header)
 		goto err_out_hdr;
 	}
 
-	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
+	atcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 		   hdr_cb_free, rsp_header);
 
 	if (len_out) {
-		tcp_writeq(&sess->wst, text_out, len_out,
-			   tcp_wr_cb_free, text_out);
+		atcp_writeq(&sess->wst, text_out, len_out,
+			   atcp_cb_free, text_out);
 		text_out = NULL;
 
 		send_padding(&sess->wst, len_out);
 	}
 
-	tcp_write_start(&sess->wst);
+	atcp_write_start(&sess->wst);
 
 	free(text_in);
 	free(text_out);
@@ -1228,9 +1228,9 @@ static int logout_command_t(struct target_session *sess, const uint8_t *header)
 		return -1;
 	}
 
-	tcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
+	atcp_writeq(&sess->wst, rsp_header, ISCSI_HEADER_LEN,
 		   hdr_cb_free, rsp_header);
-	tcp_write_start(&sess->wst);
+	atcp_write_start(&sess->wst);
 
 	iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 		    "sent logout response OK\n");
@@ -1494,9 +1494,9 @@ static int send_r2t(struct target_session *sess)
 		    sess->xfer.r2t.tag, sess->xfer.r2t.transfer_tag,
 		    sess->xfer.r2t.length, sess->xfer.r2t.offset);
 
-	tcp_writeq(&sess->wst, header, ISCSI_HEADER_LEN,
+	atcp_writeq(&sess->wst, header, ISCSI_HEADER_LEN,
 		   hdr_cb_free, header);
-	tcp_write_start(&sess->wst);
+	atcp_write_start(&sess->wst);
 
 	sess->xfer.r2t_flag = 1;
 	sess->xfer.r2t.R2TSN += 1;
@@ -1761,7 +1761,7 @@ int target_sess_cleanup(struct target_session *sess)
 
 	event_del(&sess->ev);
 
-	tcp_write_exit(&sess->wst);
+	atcp_wr_exit(&sess->wst);
 
 	/* Terminate connection */
 	if (sess->fd >= 0)
@@ -1965,7 +1965,7 @@ restart:
 		break;
 	}
 
-	tcp_write_run_compl(&sess->wst);
+	atcp_write_run_compl(&sess->wst);
 	return;
 
 err_out:
@@ -1981,6 +1981,32 @@ static void target_tcp_evt(int fd, short events, void *userdata)
 
 	target_read_evt(sess);
 }
+
+static int target_sess_le_wset(void *ev_info, int fd, atcp_ev_func cb, void *cb_data)
+{
+	struct event *ev = ev_info;
+
+	event_set(ev, fd, EV_WRITE | EV_PERSIST, cb, cb_data);
+	return 0;
+}
+
+static int target_sess_le_add(void *ev_info, const struct timeval *tv)
+{
+	struct event *ev = ev_info;
+	return event_add(ev, tv);
+}
+
+static int target_sess_le_del(void *ev_info)
+{
+	struct event *ev = ev_info;
+	return event_del(ev);
+}
+
+static const struct atcp_wr_ops libevent_wr_ops = {
+	.ev_wset	= target_sess_le_wset,
+	.ev_add		= target_sess_le_add,
+	.ev_del		= target_sess_le_del,
+};
 
 int target_accept(struct globals *gp, struct server_socket *sock)
 {
@@ -2013,7 +2039,8 @@ int target_accept(struct globals *gp, struct server_socket *sock)
 
 	sess->globals = gp;
 
-	tcp_write_init(&sess->wst, sess->fd);
+	atcp_wr_init(&sess->wst, &libevent_wr_ops, &sess->write_ev, sess);
+	atcp_wr_set_fd(&sess->wst, sess->fd);
 
 	event_set(&sess->ev, sess->fd, EV_READ | EV_PERSIST,
 		  target_tcp_evt, sess);
