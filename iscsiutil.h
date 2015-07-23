@@ -83,7 +83,7 @@
 
 #include <string.h>
 #include "elist.h"
-#include <anet.h>
+#include "anet.h"
 
 /*
  * Debugging Levels
