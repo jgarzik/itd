@@ -20,7 +20,7 @@ dnl Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 dnl Version is copied into SCSI 4-byte field, therefore, version must
 dnl ALWAYS be exactly four bytes in length.
 
-AC_INIT(itd, 0.1, [Jeff Garzik <jgarzik@pobox.com>])
+AC_INIT(itd, 0.2, [Jeff Garzik <jgarzik@pobox.com>])
 
 
 AC_PREREQ(2.52)
