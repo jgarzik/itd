@@ -2,7 +2,7 @@
 ## Toplevel Makefile.am
 ##
 
-INCLUDES	= @GLIB_CFLAGS@
+AM_CPPFLAGS	= @GLIB_CFLAGS@
 
 sbin_PROGRAMS	= itd
 

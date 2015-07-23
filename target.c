@@ -656,7 +656,7 @@ static int nop_out_t(struct target_session *sess, const uint8_t *header)
 
 		iscsi_trace(TRACE_ISCSI_DEBUG, __FILE__, __LINE__,
 			    "sending %d bytes ping response\n", nop_out.length);
-		memset(&nop_in, 0x0, sizeof(&nop_in));
+		memset(&nop_in, 0x0, sizeof(nop_in));
 		nop_in.length = nop_out.length;
 		nop_in.lun = nop_out.lun;
 		nop_in.tag = nop_out.tag;

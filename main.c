@@ -1136,7 +1136,7 @@ static int map_init(void)
 	}
 
 	alloc_len = file_map_size = data_mem_lba * data_lba_size;
-	file_map = mmap(NULL, data_mem_lba * data_lba_size,
+	file_map = mmap(NULL, alloc_len,
 			PROT_READ | PROT_WRITE, MAP_SHARED, file_map_fd, 0);
 	if (file_map == MAP_FAILED) {
 		perror("mmap");

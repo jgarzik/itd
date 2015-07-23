@@ -8,6 +8,7 @@ autom4te.cache
 aclocal.m4
 Makefile
 Makefile.in
+compile
 COPYING
 INSTALL
 config.log
