@@ -53,9 +53,11 @@ AC_CHECK_TYPES(socklen_t)
 dnl -----------------------------
 dnl Checks for required libraries
 dnl -----------------------------
-AC_CHECK_LIB(crypto, MD5_Init, CRYPTO_LIBS=-lcrypto)
+AC_CHECK_LIB(crypto, MD5_Init, CRYPTO_LIBS=-lcrypto,
+  [AC_MSG_ERROR([Missing required libcrypto])])
 AC_CHECK_LIB(event, event_base_new, EVENT_LIBS=-levent,
   [AC_MSG_ERROR([Missing required libevent])])
+AC_CHECK_LIB(argp, argp_parse, ARGP_LIBS=-largp)
 
 dnl -------------------------------------
 dnl Checks for optional library functions
@@ -75,6 +77,7 @@ dnl PKG_CHECK_MODULES(HAIL, libhail)
 
 AC_SUBST(CRYPTO_LIBS)
 AC_SUBST(EVENT_LIBS)
+AC_SUBST(ARGP_LIBS)
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
