@@ -33,6 +33,7 @@ before_install:
 
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install glib; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libevent; fi
 
 before_script:
   - if [ -n "$USE_SHELL" ]; then export CONFIG_SHELL="$USE_SHELL"; fi
