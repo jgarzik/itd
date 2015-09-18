@@ -1,0 +1,41 @@
+
+language: c
+
+compiler:
+  - clang
+  - gcc
+
+os:
+  - linux
+
+sudo: false
+
+env:
+  global:
+    - MAKEJOBS=-j3
+    - RUN_TESTS=true
+    - BASE_OUTDIR=$TRAVIS_BUILD_DIR/out
+
+cache:
+  apt: true
+
+addons:
+  apt:
+    packages:
+      - libssl-dev
+      - libevent-dev
+      - pkg-config
+      - libglib2.0-dev
+
+before_script:
+  - if [ -n "$USE_SHELL" ]; then export CONFIG_SHELL="$USE_SHELL"; fi
+  - test -n "$USE_SHELL" && eval '"$USE_SHELL" -c "./autogen.sh"' || ./autogen.sh
+
+script:
+  - OUTDIR=$BASE_OUTDIR/$TRAVIS_PULL_REQUEST/$TRAVIS_JOB_NUMBER-$HOST
+  - ITD_CONFIG_ALL="--prefix=$TRAVIS_BUILD_DIR/depends/$HOST --bindir=$OUTDIR/bin --libdir=$OUTDIR/lib"
+  - ./configure --cache-file=config.cache $ITD_CONFIG_ALL $ITD_CONFIG || ( cat config.log && false)
+  - make -s $MAKEJOBS $GOAL || ( echo "Build failure. Verbose build follows." && make $GOAL ; false )
+  - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/depends/$HOST/lib
+  - if [ "$RUN_TESTS" = "true" ]; then make check; fi
+
